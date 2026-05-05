@@ -179,28 +179,42 @@ function MatrixView({ navigate }) {
       });
     } else if (item.type === 'assignment') {
       setAssignments(prev => {
-        const moved = prev.map(a =>
+        const movedA = prev.find(a => a.id === item.assignmentId);
+        let next = prev.map(a =>
           a.id === item.assignmentId ? { ...a, producer: producerId, date } : a
         );
-        const movedA = prev.find(a => a.id === item.assignmentId);
+        // Clear פנוי at destination if dropping a project card
         if (movedA && movedA.project) {
-          return moved.filter(a =>
+          next = next.filter(a =>
             !(a.producer === producerId && a.date === date && !a.project && a.label === 'פנוי')
           );
         }
-        return moved;
+        // Restore פנוי at source if it's now empty
+        if (movedA && (movedA.producer !== producerId || movedA.date !== date)) {
+          const stillHas = next.some(a => a.producer === movedA.producer && a.date === movedA.date);
+          if (!stillHas) next.push({ id: 'a-free-' + Date.now(), producer: movedA.producer, date: movedA.date, project: null, hours: 0, label: 'פנוי' });
+        }
+        return next;
       });
     }
     setDragItem(null);
     setDragOver(null);
   };
 
-  // Drop on sidebar → unschedule
+  // Drop on sidebar → unschedule; restore פנוי if cell becomes empty
   const onDropOnSidebar = () => {
     const item = _drag;
     _drag = null;
     if (!item || item.type !== 'assignment') return;
-    setAssignments(prev => prev.filter(a => a.id !== item.assignmentId));
+    setAssignments(prev => {
+      const removed = prev.find(a => a.id === item.assignmentId);
+      const next = prev.filter(a => a.id !== item.assignmentId);
+      if (removed) {
+        const stillHas = next.some(a => a.producer === removed.producer && a.date === removed.date);
+        if (!stillHas) next.push({ id: 'a-free-' + Date.now(), producer: removed.producer, date: removed.date, project: null, hours: 0, label: 'פנוי' });
+      }
+      return next;
+    });
     setDragItem(null);
   };
 
