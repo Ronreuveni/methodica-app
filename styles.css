@@ -86,6 +86,42 @@ input, select { font-family: inherit; }
 .nav-badge { margin-inline-start: auto; font-size: 11px; background: rgba(0,0,0,0.08); border-radius: 10px; padding: 1px 7px; font-variant-numeric: tabular-nums; }
 .nav-item.active .nav-badge { background: rgba(255,255,255,0.18); color: #fff; }
 
+/* Producer nav — add/remove */
+.nav-section-row { display: flex; align-items: center; justify-content: space-between; padding: 18px 10px 6px; }
+.nav-section-row .nav-section { padding: 0; }
+.nav-add-btn {
+  width: 22px; height: 22px; border-radius: 6px;
+  font-size: 18px; font-weight: 400; line-height: 1;
+  color: var(--ink-500);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all .12s;
+}
+.nav-add-btn:hover { background: rgba(0,0,0,.06); color: var(--ink-900); }
+.nav-item-producer { cursor: pointer; }
+.prod-remove-btn {
+  opacity: 0; width: 20px; height: 20px; border-radius: 4px;
+  font-size: 15px; line-height: 1; flex-shrink: 0;
+  color: var(--ink-400);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all .12s;
+}
+.nav-item-producer:hover .prod-remove-btn { opacity: 1; }
+.prod-remove-btn:hover { background: #FCE4E1 !important; color: var(--danger) !important; }
+.add-producer-form {
+  padding: 10px; background: var(--bg-muted);
+  border-radius: var(--r-md); border: 1px solid var(--line); margin: 4px 0;
+}
+.add-producer-input {
+  flex: 1; min-width: 0; padding: 6px 10px;
+  border: 1px solid var(--line-strong); border-radius: 6px;
+  background: #fff; font-family: inherit; font-size: 13px; outline: none;
+}
+.add-producer-input:focus { border-color: var(--brand-orange); box-shadow: 0 0 0 2px rgba(236,130,35,.15); }
+.add-producer-color {
+  width: 32px; height: 32px; border-radius: 6px;
+  border: 1px solid var(--line-strong); padding: 2px; cursor: pointer; flex-shrink: 0;
+}
+
 /* Page header */
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
 .page-title { font-size: 26px; font-weight: 800; letter-spacing: -0.3px; margin: 0; line-height: 1.1; }

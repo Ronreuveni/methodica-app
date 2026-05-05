@@ -29,11 +29,32 @@ function Brand() {
   );
 }
 
-function Sidebar({ view, setView, selectedProducer }) {
+function Sidebar({ view, setView, selectedProducer, producers, setProducers }) {
+  const [addingProducer, setAddingProducer] = React.useState(false);
+  const [newName, setNewName] = React.useState('');
+  const [newColor, setNewColor] = React.useState('#5B8DD9');
+
   const nav = [
     { id: 'board',  label: 'לוח הפקות',  icon: Icons.board,  badge: PROJECTS.length },
-    { id: 'matrix', label: 'לוז מפיקים', icon: Icons.matrix, badge: PRODUCERS.length },
+    { id: 'matrix', label: 'לוז מפיקים', icon: Icons.matrix, badge: producers.length },
   ];
+
+  const addProducer = () => {
+    if (!newName.trim()) return;
+    const id = 'p_' + Date.now();
+    const updated = [...producers, { id, name: newName.trim(), color: newColor, capacity: 0.75, hoursWeek: 35 }];
+    setProducers(updated);
+    setAddingProducer(false);
+    setNewName('');
+    setNewColor('#5B8DD9');
+  };
+
+  const removeProducer = (id) => {
+    if (!confirm('להסיר מפיק.ה זו מהמערכת?')) return;
+    setProducers(prev => prev.filter(p => p.id !== id));
+    if (view === 'producer' && selectedProducer === id) setView('board');
+  };
+
   return (
     <aside className="sidebar">
       <Brand/>
@@ -49,19 +70,40 @@ function Sidebar({ view, setView, selectedProducer }) {
             </button>
           );
         })}
-        <div className="nav-section">מפיקים</div>
-        {PRODUCERS.map(p => (
-          <button key={p.id}
-            className={'nav-item ' + (view==='producer' && selectedProducer===p.id?'active':'')}
-            onClick={()=>setView('producer', p.id)}>
+
+        <div className="nav-section-row">
+          <span className="nav-section">מפיקים</span>
+          <button className="nav-add-btn" onClick={() => setAddingProducer(a => !a)} title="הוסף מפיק.ה">+</button>
+        </div>
+
+        {producers.map(p => (
+          <div key={p.id}
+            className={'nav-item nav-item-producer ' + (view==='producer' && selectedProducer===p.id?'active':'')}
+            onClick={() => setView('producer', p.id)}>
             <span className="avatar sm" style={{background:p.color}}>{p.name.charAt(0)}</span>
             <span>{p.name}</span>
             <span className="nav-badge">{Math.round(p.capacity*100)}%</span>
-          </button>
+            <button className="prod-remove-btn"
+              onClick={e => { e.stopPropagation(); removeProducer(p.id); }}
+              title="הסר">×</button>
+          </div>
         ))}
-        <div className="nav-section">כלים</div>
-        <button className="nav-item"><span className="nav-icon"><Icons.calendar/></span><span>לוח שנה</span></button>
-        <button className="nav-item"><span className="nav-icon"><Icons.settings/></span><span>הגדרות</span></button>
+
+        {addingProducer && (
+          <div className="add-producer-form">
+            <div style={{display:'flex', gap:6, alignItems:'center'}}>
+              <input autoFocus className="add-producer-input" placeholder="שם המפיק.ה"
+                value={newName} onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => { if (e.key==='Enter') addProducer(); if (e.key==='Escape') setAddingProducer(false); }}/>
+              <input type="color" className="add-producer-color" value={newColor}
+                onChange={e => setNewColor(e.target.value)}/>
+            </div>
+            <div style={{display:'flex', gap:6, marginTop:6}}>
+              <button className="btn btn-primary" style={{flex:1, padding:'6px 0', fontSize:12}} onClick={addProducer}>הוסף</button>
+              <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:12}} onClick={() => setAddingProducer(false)}>ביטול</button>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );
