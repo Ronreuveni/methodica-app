@@ -438,7 +438,7 @@ function CellContent({ assignments, holiday, onProjectClick, dragItem, setDragIt
               onDragStart={e => {
                 e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'assignment', assignmentId: a.id }));
                 e.dataTransfer.effectAllowed = 'move';
-                setDragItem({ type: 'assignment', assignmentId: a.id });
+                setTimeout(() => setDragItem({ type: 'assignment', assignmentId: a.id }), 0);
               }}
               onDragEnd={() => setDragItem(null)}>
               {a.label}
@@ -458,7 +458,7 @@ function CellContent({ assignments, holiday, onProjectClick, dragItem, setDragIt
             onDragStart={e => {
               e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'assignment', assignmentId: a.id }));
               e.dataTransfer.effectAllowed = 'move';
-              setDragItem({ type: 'assignment', assignmentId: a.id });
+              setTimeout(() => setDragItem({ type: 'assignment', assignmentId: a.id }), 0);
             }}
             onDragEnd={() => setDragItem(null)}
             onClick={e => { e.stopPropagation(); onProjectClick(proj.id); }}>
