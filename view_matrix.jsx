@@ -125,7 +125,11 @@ function MatrixView({ navigate }) {
   const [projectModal, setProjectModal] = React.useState(null);
 
   // Unified drag: { type:'project', projectId } | { type:'assignment', assignmentId }
-  const [dragItem, setDragItem] = React.useState(null);
+  // Use a ref alongside state: ref is readable synchronously in drag event handlers
+  // before React has had a chance to re-render with the updated state value.
+  const dragItemRef = React.useRef(null);
+  const [dragItem, _setDragItem] = React.useState(null);
+  const setDragItem = React.useCallback((v) => { dragItemRef.current = v; _setDragItem(v); }, []);
   const [dragOver, setDragOver] = React.useState(null); // { producer, date }
 
   // Free-text editing: { producer, date } | null
@@ -157,18 +161,25 @@ function MatrixView({ navigate }) {
       .reduce((acc, a) => acc + (a.hours || 0), 0);
   });
 
-  // Drop on a cell
+  // Drop on a cell — read from ref, not state, for reliable synchronous access
   const onDropOnCell = (producerId, date) => {
-    if (!dragItem) return;
-    if (dragItem.type === 'project') {
-      setAssignments(prev => [...prev, {
-        id: 'a-new-' + Date.now(),
-        producer: producerId, date,
-        project: dragItem.projectId, hours: 7, label: null,
-      }]);
-    } else if (dragItem.type === 'assignment') {
+    const item = dragItemRef.current;
+    if (!item) return;
+    if (item.type === 'project') {
+      setAssignments(prev => {
+        // Remove any פנוי/free placeholder in the target cell before adding the project
+        const cleared = prev.filter(a =>
+          !(a.producer === producerId && a.date === date && !a.project && a.label === 'פנוי')
+        );
+        return [...cleared, {
+          id: 'a-new-' + Date.now(),
+          producer: producerId, date,
+          project: item.projectId, hours: 7, label: null,
+        }];
+      });
+    } else if (item.type === 'assignment') {
       setAssignments(prev => prev.map(a =>
-        a.id === dragItem.assignmentId ? { ...a, producer: producerId, date } : a
+        a.id === item.assignmentId ? { ...a, producer: producerId, date } : a
       ));
     }
     setDragItem(null);
@@ -177,8 +188,9 @@ function MatrixView({ navigate }) {
 
   // Drop on sidebar → unschedule the assignment
   const onDropOnSidebar = () => {
-    if (!dragItem || dragItem.type !== 'assignment') return;
-    setAssignments(prev => prev.filter(a => a.id !== dragItem.assignmentId));
+    const item = dragItemRef.current;
+    if (!item || item.type !== 'assignment') return;
+    setAssignments(prev => prev.filter(a => a.id !== item.assignmentId));
     setDragItem(null);
   };
 
@@ -293,8 +305,8 @@ function MatrixView({ navigate }) {
                       return (
                         <td key={dt}
                           className={'cell ' + (dt===TODAY_MX.toISOString().slice(0,10)?'today ':'') + (isDragOver?'drag-over ':'') + (isHoliday?'holiday-cell ':'')}
-                          onDragOver={e => { if (dragItem) { e.preventDefault(); setDragOver({producer:prod.id, date:dt}); }}}
-                          onDragLeave={() => setDragOver(null)}
+                          onDragOver={e => { e.preventDefault(); setDragOver({producer:prod.id, date:dt}); }}
+                          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null); }}
                           onDrop={() => onDropOnCell(prod.id, dt)}>
                           <CellContent
                             assignments={cellAssignments}
@@ -354,7 +366,7 @@ function UnscheduledSidebar({ projects, dragItem, setDragItem, onDropOnSidebar }
       {!collapsed && (
         <div
           className={'sidebar-body ' + (canDropHere ? 'sidebar-drop-target' : '')}
-          onDragOver={e => { if (canDropHere) e.preventDefault(); }}
+          onDragOver={e => { e.preventDefault(); }}
           onDrop={onDropOnSidebar}>
           {canDropHere && (
             <div className="sidebar-drop-hint">גרור לכאן להסרה מהלוח</div>
