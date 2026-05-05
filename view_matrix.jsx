@@ -12,6 +12,9 @@
 
 const TODAY_MX = new Date('2026-04-23');
 
+// Module-level drag state — bypasses dataTransfer API entirely so table DnD works reliably
+let _drag = null;
+
 const _isRangeMx = (v) => v && typeof v === 'object' && ('from' in v || 'to' in v);
 const _rStartMx = (v) => !v ? '' : (_isRangeMx(v) ? (v.from || v.to || '') : v);
 const _rEndMx   = (v) => !v ? '' : (_isRangeMx(v) ? (v.to || v.from || '') : v);
@@ -158,10 +161,10 @@ function MatrixView({ navigate }) {
       .reduce((acc, a) => acc + (a.hours || 0), 0);
   });
 
-  // Drop on a cell — data comes from e.dataTransfer, never from React state
-  const onDropOnCell = (producerId, date, e) => {
-    let item;
-    try { item = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+  // Drop on a cell — reads _drag module var (avoids dataTransfer API issues in table cells)
+  const onDropOnCell = (producerId, date) => {
+    const item = _drag;
+    _drag = null;
     if (!item) return;
     if (item.type === 'project') {
       setAssignments(prev => {
@@ -184,9 +187,9 @@ function MatrixView({ navigate }) {
   };
 
   // Drop on sidebar → unschedule
-  const onDropOnSidebar = (e) => {
-    let item;
-    try { item = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+  const onDropOnSidebar = () => {
+    const item = _drag;
+    _drag = null;
     if (!item || item.type !== 'assignment') return;
     setAssignments(prev => prev.filter(a => a.id !== item.assignmentId));
     setDragItem(null);
@@ -305,7 +308,7 @@ function MatrixView({ navigate }) {
                           className={'cell ' + (dt===TODAY_MX.toISOString().slice(0,10)?'today ':'') + (isDragOver?'drag-over ':'') + (isHoliday?'holiday-cell ':'')}
                           onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver({producer:prod.id, date:dt}); }}
                           onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null); }}
-                          onDrop={e => { e.preventDefault(); onDropOnCell(prod.id, dt, e); }}>
+                          onDrop={e => { e.preventDefault(); onDropOnCell(prod.id, dt); }}>
                           <CellContent
                             assignments={cellAssignments}
                             holiday={isHoliday}
@@ -365,7 +368,7 @@ function UnscheduledSidebar({ projects, dragItem, setDragItem, onDropOnSidebar }
         <div
           className={'sidebar-body ' + (canDropHere ? 'sidebar-drop-target' : '')}
           onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-          onDrop={e => { e.preventDefault(); onDropOnSidebar(e); }}>
+          onDrop={e => { e.preventDefault(); onDropOnSidebar(); }}>
           {canDropHere && (
             <div className="sidebar-drop-hint">גרור לכאן להסרה מהלוח</div>
           )}
@@ -382,11 +385,12 @@ function UnscheduledSidebar({ projects, dragItem, setDragItem, onDropOnSidebar }
                 className={'unscheduled-card ' + (isDragging?'is-dragging':'')}
                 draggable
                 onDragStart={e => {
-                  e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'project', projectId: p.id }));
+                  _drag = { type: 'project', projectId: p.id };
+                  e.dataTransfer.setData('text/plain', '1');
                   e.dataTransfer.effectAllowed = 'move';
                   setDragItem({ type: 'project', projectId: p.id });
                 }}
-                onDragEnd={() => setDragItem(null)}>
+                onDragEnd={() => { _drag = null; setDragItem(null); }}>
                 <div className="unsch-name">
                   {p.urgency==='hot' && <span style={{marginInlineEnd:4}}>🔥</span>}
                   {p.name}
@@ -436,11 +440,12 @@ function CellContent({ assignments, holiday, onProjectClick, dragItem, setDragIt
               style={{cursor:'grab'}}
               draggable
               onDragStart={e => {
-                e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'assignment', assignmentId: a.id }));
+                _drag = { type: 'assignment', assignmentId: a.id };
+                e.dataTransfer.setData('text/plain', '1');
                 e.dataTransfer.effectAllowed = 'move';
                 setTimeout(() => setDragItem({ type: 'assignment', assignmentId: a.id }), 0);
               }}
-              onDragEnd={() => setDragItem(null)}>
+              onDragEnd={() => { _drag = null; setDragItem(null); }}>
               {a.label}
             </div>
           );
@@ -456,11 +461,12 @@ function CellContent({ assignments, holiday, onProjectClick, dragItem, setDragIt
             style={{borderInlineEndColor: s.color, background: s.bg, cursor:'grab'}}
             draggable
             onDragStart={e => {
-              e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'assignment', assignmentId: a.id }));
+              _drag = { type: 'assignment', assignmentId: a.id };
+              e.dataTransfer.setData('text/plain', '1');
               e.dataTransfer.effectAllowed = 'move';
               setTimeout(() => setDragItem({ type: 'assignment', assignmentId: a.id }), 0);
             }}
-            onDragEnd={() => setDragItem(null)}
+            onDragEnd={() => { _drag = null; setDragItem(null); }}
             onClick={e => { e.stopPropagation(); onProjectClick(proj.id); }}>
             <div className="cell-entry-name">
               {proj.urgency==='hot' && <span className="cell-fire">🔥</span>}
