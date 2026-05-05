@@ -178,9 +178,18 @@ function MatrixView({ navigate }) {
         }];
       });
     } else if (item.type === 'assignment') {
-      setAssignments(prev => prev.map(a =>
-        a.id === item.assignmentId ? { ...a, producer: producerId, date } : a
-      ));
+      setAssignments(prev => {
+        const moved = prev.map(a =>
+          a.id === item.assignmentId ? { ...a, producer: producerId, date } : a
+        );
+        const movedA = prev.find(a => a.id === item.assignmentId);
+        if (movedA && movedA.project) {
+          return moved.filter(a =>
+            !(a.producer === producerId && a.date === date && !a.project && a.label === 'פנוי')
+          );
+        }
+        return moved;
+      });
     }
     setDragItem(null);
     setDragOver(null);
