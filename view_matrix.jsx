@@ -124,12 +124,9 @@ function MatrixView({ navigate }) {
   const [assignments, setAssignments] = React.useState(buildAssignments);
   const [projectModal, setProjectModal] = React.useState(null);
 
-  // Unified drag: { type:'project', projectId } | { type:'assignment', assignmentId }
-  // Use a ref alongside state: ref is readable synchronously in drag event handlers
-  // before React has had a chance to re-render with the updated state value.
-  const dragItemRef = React.useRef(null);
-  const [dragItem, _setDragItem] = React.useState(null);
-  const setDragItem = React.useCallback((v) => { dragItemRef.current = v; _setDragItem(v); }, []);
+  // dragItem is state used ONLY for visual feedback (dim dragged card, highlight sidebar).
+  // Actual drag data travels via e.dataTransfer so it's always available synchronously.
+  const [dragItem, setDragItem] = React.useState(null);
   const [dragOver, setDragOver] = React.useState(null); // { producer, date }
 
   // Free-text editing: { producer, date } | null
@@ -161,13 +158,13 @@ function MatrixView({ navigate }) {
       .reduce((acc, a) => acc + (a.hours || 0), 0);
   });
 
-  // Drop on a cell — read from ref, not state, for reliable synchronous access
-  const onDropOnCell = (producerId, date) => {
-    const item = dragItemRef.current;
+  // Drop on a cell — data comes from e.dataTransfer, never from React state
+  const onDropOnCell = (producerId, date, e) => {
+    let item;
+    try { item = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
     if (!item) return;
     if (item.type === 'project') {
       setAssignments(prev => {
-        // Remove any פנוי/free placeholder in the target cell before adding the project
         const cleared = prev.filter(a =>
           !(a.producer === producerId && a.date === date && !a.project && a.label === 'פנוי')
         );
@@ -186,9 +183,10 @@ function MatrixView({ navigate }) {
     setDragOver(null);
   };
 
-  // Drop on sidebar → unschedule the assignment
-  const onDropOnSidebar = () => {
-    const item = dragItemRef.current;
+  // Drop on sidebar → unschedule
+  const onDropOnSidebar = (e) => {
+    let item;
+    try { item = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
     if (!item || item.type !== 'assignment') return;
     setAssignments(prev => prev.filter(a => a.id !== item.assignmentId));
     setDragItem(null);
@@ -305,9 +303,9 @@ function MatrixView({ navigate }) {
                       return (
                         <td key={dt}
                           className={'cell ' + (dt===TODAY_MX.toISOString().slice(0,10)?'today ':'') + (isDragOver?'drag-over ':'') + (isHoliday?'holiday-cell ':'')}
-                          onDragOver={e => { e.preventDefault(); setDragOver({producer:prod.id, date:dt}); }}
+                          onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver({producer:prod.id, date:dt}); }}
                           onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null); }}
-                          onDrop={() => onDropOnCell(prod.id, dt)}>
+                          onDrop={e => { e.preventDefault(); onDropOnCell(prod.id, dt, e); }}>
                           <CellContent
                             assignments={cellAssignments}
                             holiday={isHoliday}
@@ -366,8 +364,8 @@ function UnscheduledSidebar({ projects, dragItem, setDragItem, onDropOnSidebar }
       {!collapsed && (
         <div
           className={'sidebar-body ' + (canDropHere ? 'sidebar-drop-target' : '')}
-          onDragOver={e => { e.preventDefault(); }}
-          onDrop={onDropOnSidebar}>
+          onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+          onDrop={e => { e.preventDefault(); onDropOnSidebar(e); }}>
           {canDropHere && (
             <div className="sidebar-drop-hint">גרור לכאן להסרה מהלוח</div>
           )}
@@ -383,7 +381,11 @@ function UnscheduledSidebar({ projects, dragItem, setDragItem, onDropOnSidebar }
               <div key={p.id}
                 className={'unscheduled-card ' + (isDragging?'is-dragging':'')}
                 draggable
-                onDragStart={() => setDragItem({ type: 'project', projectId: p.id })}
+                onDragStart={e => {
+                  e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'project', projectId: p.id }));
+                  e.dataTransfer.effectAllowed = 'move';
+                  setDragItem({ type: 'project', projectId: p.id });
+                }}
                 onDragEnd={() => setDragItem(null)}>
                 <div className="unsch-name">
                   {p.urgency==='hot' && <span style={{marginInlineEnd:4}}>🔥</span>}
@@ -433,7 +435,11 @@ function CellContent({ assignments, holiday, onProjectClick, dragItem, setDragIt
               className={'cell-state ' + (isVac?'vacation':'free') + (isDraggingThis?' entry-dragging':'')}
               style={{cursor:'grab'}}
               draggable
-              onDragStart={e => { e.stopPropagation(); setDragItem({ type:'assignment', assignmentId:a.id }); }}
+              onDragStart={e => {
+                e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'assignment', assignmentId: a.id }));
+                e.dataTransfer.effectAllowed = 'move';
+                setDragItem({ type: 'assignment', assignmentId: a.id });
+              }}
               onDragEnd={() => setDragItem(null)}>
               {a.label}
             </div>
@@ -449,7 +455,11 @@ function CellContent({ assignments, holiday, onProjectClick, dragItem, setDragIt
             className={'cell-entry ' + (isDraggingThis?'entry-dragging':'')}
             style={{borderInlineEndColor: s.color, background: s.bg, cursor:'grab'}}
             draggable
-            onDragStart={e => { e.stopPropagation(); setDragItem({ type:'assignment', assignmentId:a.id }); }}
+            onDragStart={e => {
+              e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'assignment', assignmentId: a.id }));
+              e.dataTransfer.effectAllowed = 'move';
+              setDragItem({ type: 'assignment', assignmentId: a.id });
+            }}
             onDragEnd={() => setDragItem(null)}
             onClick={e => { e.stopPropagation(); onProjectClick(proj.id); }}>
             <div className="cell-entry-name">
