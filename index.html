@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<title>ניהול הפקות · Methodica</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css?v=8"/>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js?v=3"></script>
+<script type="text/babel" src="components.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="view_board.jsx?v=5"></script>
+<script type="text/babel" src="view_matrix.jsx?v=3"></script>
+<script type="text/babel" src="view_producer_history.jsx"></script>
+<script type="text/babel" src="view_producer.jsx?v=3"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "density": "regular",
+  "accent": "#EC8223",
+  "showFireIcons": true,
+  "showCapacityBars": true,
+  "warmCream": false,
+  "loadStyle": "bars"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [view, setView] = React.useState(() => {
+    try { return localStorage.getItem('view') || 'board'; } catch { return 'board'; }
+  });
+  const [producerId, setProducerId] = React.useState(() => {
+    try { return localStorage.getItem('producerId') || 'ron'; } catch { return 'ron'; }
+  });
+
+  const navigate = (v, pid) => {
+    setView(v);
+    if (pid) setProducerId(pid);
+    try {
+      localStorage.setItem('view', v);
+      if (pid) localStorage.setItem('producerId', pid);
+    } catch {}
+  };
+
+  // Apply tweaks to root via CSS vars + classes
+  React.useEffect(() => {
+    const r = document.documentElement;
+    r.style.setProperty('--brand-orange', t.accent);
+    r.dataset.density = t.density;
+    r.dataset.fire = t.showFireIcons ? '1' : '0';
+    r.dataset.capbars = t.showCapacityBars ? '1' : '0';
+    r.dataset.cream = t.warmCream ? '1' : '0';
+    r.dataset.loadStyle = t.loadStyle;
+  }, [t]);
+
+  return (
+    <div className="app">
+      <Sidebar view={view} setView={navigate} selectedProducer={producerId}/>
+      <main className="main">
+        {view === 'board' && <BoardView navigate={navigate}/>}
+        {view === 'matrix' && <MatrixView navigate={navigate}/>}
+        {view === 'producer' && <ProducerView producerId={producerId} navigate={navigate}/>}
+      </main>
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="פריסה"/>
+        <TweakRadio label="צפיפות" value={t.density}
+          options={[{value:'compact',label:'קומפקטי'},{value:'regular',label:'רגיל'},{value:'comfy',label:'מרווח'}]}
+          onChange={(v) => setTweak('density', v)} />
+        <TweakToggle label="רקע קרם חמים" value={t.warmCream}
+          onChange={(v) => setTweak('warmCream', v)} />
+        <TweakSection label="צבע מותג"/>
+        <TweakColor label="צבע ראשי" value={t.accent}
+          onChange={(v) => setTweak('accent', v)} />
+        <TweakSection label="לוח מפיקים"/>
+        <TweakRadio label="סגנון עומס" value={t.loadStyle}
+          options={[{value:'bars',label:'פסים'},{value:'dots',label:'נקודות'},{value:'pct',label:'אחוז בלבד'}]}
+          onChange={(v) => setTweak('loadStyle', v)} />
+        <TweakToggle label="הצג פסי קיבולת" value={t.showCapacityBars}
+          onChange={(v) => setTweak('showCapacityBars', v)} />
+        <TweakToggle label="אייקוני 🔥 על דחופים" value={t.showFireIcons}
+          onChange={(v) => setTweak('showFireIcons', v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
