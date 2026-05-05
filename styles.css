@@ -1195,6 +1195,44 @@ select.cell-input { padding: 5px 8px; }
   font-size: 9px; color: var(--ink-500); font-weight: 600;
 }
 
+/* ── Matrix cell: multiple assignments + free text ── */
+.cell-content-wrap { display: flex; flex-direction: column; gap: 4px; min-height: 80px; }
+
+/* Dragging state for entries */
+.entry-dragging { opacity: 0.35; pointer-events: none; }
+
+/* "+" button — visible on cell hover */
+.cell-add-btn {
+  display: none;
+  width: 100%; padding: 3px 0; text-align: center;
+  font-size: 15px; font-weight: 700; line-height: 1;
+  color: var(--ink-300); border-radius: var(--r-sm);
+  transition: all .12s;
+}
+.matrix .cell:hover .cell-add-btn { display: block; }
+.cell-add-btn:hover { background: var(--bg-muted); color: var(--ink-700); }
+
+/* Free text input inside a cell */
+.cell-add-input {
+  width: 100%; padding: 5px 8px;
+  border: 1.5px solid var(--brand-orange);
+  border-radius: var(--r-sm);
+  background: #fff; font-family: inherit; font-size: 11px;
+  outline: none; box-shadow: 0 0 0 2px rgba(236,130,35,.15);
+}
+
+/* Sidebar as drop target */
+.sidebar-body.sidebar-drop-target {
+  background: var(--brand-orange-soft);
+  outline: 2px dashed var(--brand-orange);
+  outline-offset: -4px;
+  border-radius: var(--r-md);
+}
+.sidebar-drop-hint {
+  text-align: center; font-size: 12px; font-weight: 600;
+  color: var(--brand-orange); padding: 10px 8px 4px;
+}
+
 /* Scrollbar */
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 10px; border: 2px solid var(--bg); }

@@ -2,16 +2,16 @@
    Features:
    - Range toggle: weekly (5d) / fortnight (10d)
    - Date navigation (prev/next/today)
-   - Drag from "unscheduled" sidebar onto a day cell
-   - Multi-day spans (assignment can span N consecutive days)
-   - Vacation/holiday/free cells
+   - Drag projects from unscheduled sidebar onto cells
+   - Drag existing cell assignments to other cells or back to sidebar to unschedule
+   - Multiple assignments per cell
+   - Add free text (vacation, holiday, note) via inline "+" in any cell
    - Click producer row -> producer view
-   - Click assignment -> project modal showing all assignments for that project
+   - Click assignment -> project modal
 */
 
 const TODAY_MX = new Date('2026-04-23');
 
-// Date/range helpers (shared shape with view_board)
 const _isRangeMx = (v) => v && typeof v === 'object' && ('from' in v || 'to' in v);
 const _rStartMx = (v) => !v ? '' : (_isRangeMx(v) ? (v.from || v.to || '') : v);
 const _rEndMx   = (v) => !v ? '' : (_isRangeMx(v) ? (v.to || v.from || '') : v);
@@ -27,13 +27,9 @@ const HOLIDAYS = {
   '2026-05-01': { label:'יום העצמאות', kind:'holiday' },
 };
 
-// Helper: build full assignment list with explicit dates
-// Each existing SCHEDULE entry → date = WEEK_START + day
-// Plus we synthesize next-week assignments by repeating the pattern with light variation
 function buildAssignments() {
   const out = [];
   const weekStart = new Date(WEEK_START);
-  // current week (5 days)
   SCHEDULE.forEach(s => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + s.day);
@@ -46,64 +42,52 @@ function buildAssignments() {
       label: s.label || null,
     });
   });
-  // next week (synthesized from current — small variations)
-  // For most producers: same project pattern; vadim returns from vacation
   const nextWeekData = [
-    // ron — finishing p25, transitioning to p21
     { producer:'ron', dayOff:0, project:'p25', hours:8 },
     { producer:'ron', dayOff:1, project:'p25', hours:8 },
     { producer:'ron', dayOff:2, project:'p21', hours:7 },
     { producer:'ron', dayOff:3, project:'p21', hours:8 },
     { producer:'ron', dayOff:4, project:'p20', hours:6 },
-    // arik — continuing p13
     { producer:'arik', dayOff:0, project:'p13', hours:9 },
     { producer:'arik', dayOff:1, project:'p13', hours:9 },
     { producer:'arik', dayOff:2, project:'p13', hours:9 },
     { producer:'arik', dayOff:3, project:'p23', hours:8 },
     { producer:'arik', dayOff:4, project:'p09', hours:9 },
-    // vadim — back full week
     { producer:'vadim', dayOff:0, project:'p15', hours:8 },
     { producer:'vadim', dayOff:1, project:'p15', hours:8 },
     { producer:'vadim', dayOff:2, project:'p24', hours:7 },
     { producer:'vadim', dayOff:3, project:'p24', hours:8 },
     { producer:'vadim', dayOff:4, project:'p24', hours:7 },
-    // sharon — p07 ongoing
     { producer:'sharon', dayOff:0, project:'p07', hours:7 },
     { producer:'sharon', dayOff:1, project:'p07', hours:7 },
     { producer:'sharon', dayOff:2, project:'p07', hours:6 },
     { producer:'sharon', dayOff:3, project:'p07', hours:7 },
     { producer:'sharon', dayOff:4, project:null, hours:0, label:'פנוי' },
-    // noa — p06
     { producer:'noa', dayOff:0, project:'p06', hours:7 },
     { producer:'noa', dayOff:1, project:'p06', hours:7 },
     { producer:'noa', dayOff:2, project:'p06', hours:6 },
     { producer:'noa', dayOff:3, project:null, hours:0, label:'פנוי' },
     { producer:'noa', dayOff:4, project:'p06', hours:7 },
-    // uri — p08
     { producer:'uri', dayOff:0, project:'p08', hours:8 },
     { producer:'uri', dayOff:1, project:'p08', hours:8 },
     { producer:'uri', dayOff:2, project:'p10', hours:8 },
     { producer:'uri', dayOff:3, project:'p03', hours:8 },
     { producer:'uri', dayOff:4, project:'p03', hours:7 },
-    // hen — p19
     { producer:'hen', dayOff:0, project:null, hours:0, label:'יום הזיכרון' },
     { producer:'hen', dayOff:1, project:null, hours:0, label:'יום העצמאות' },
     { producer:'hen', dayOff:2, project:'p19', hours:7 },
     { producer:'hen', dayOff:3, project:'p19', hours:6 },
     { producer:'hen', dayOff:4, project:'p19', hours:7 },
-    // kholod
     { producer:'kholod', dayOff:0, project:'p02', hours:8 },
     { producer:'kholod', dayOff:1, project:'p02', hours:8 },
     { producer:'kholod', dayOff:2, project:'p05', hours:8 },
     { producer:'kholod', dayOff:3, project:null, hours:0, label:'יום הזיכרון' },
     { producer:'kholod', dayOff:4, project:null, hours:0, label:'יום העצמאות' },
-    // mirah
     { producer:'mirah', dayOff:0, project:'p28', hours:7 },
     { producer:'mirah', dayOff:1, project:'p28', hours:7 },
     { producer:'mirah', dayOff:2, project:'p18', hours:7 },
     { producer:'mirah', dayOff:3, project:'p18', hours:7 },
     { producer:'mirah', dayOff:4, project:'p02', hours:6 },
-    // sofi
     { producer:'sofi', dayOff:0, project:'p22', hours:8 },
     { producer:'sofi', dayOff:1, project:'p22', hours:7 },
     { producer:'sofi', dayOff:2, project:'p18', hours:6 },
@@ -125,26 +109,29 @@ function buildAssignments() {
   return out;
 }
 
-// Format date as 'DD/MM' and 'יום X'
 const DAY_NAMES_FULL = ['ראשון','שני','שלישי','רביעי','חמישי'];
 function formatDayHeader(date) {
   const d = new Date(date);
   return {
     name: DAY_NAMES_FULL[d.getDay()] || '',
-    short: 'א׳ב׳ג׳ד׳ה׳'.split('׳').filter(Boolean)[d.getDay()] || '',
     date: d.getDate() + '.' + (d.getMonth()+1),
   };
 }
 
 function MatrixView({ navigate }) {
-  // Range mode: 'week' (5 days) | 'fortnight' (10 days)
   const [range, setRange] = React.useState('week');
-  const [weekOffset, setWeekOffset] = React.useState(0); // 0 = current
-
+  const [weekOffset, setWeekOffset] = React.useState(0);
   const [assignments, setAssignments] = React.useState(buildAssignments);
-  const [projectModal, setProjectModal] = React.useState(null); // projectId
+  const [projectModal, setProjectModal] = React.useState(null);
 
-  // Compute visible date range
+  // Unified drag: { type:'project', projectId } | { type:'assignment', assignmentId }
+  const [dragItem, setDragItem] = React.useState(null);
+  const [dragOver, setDragOver] = React.useState(null); // { producer, date }
+
+  // Free-text editing: { producer, date } | null
+  const [editingCell, setEditingCell] = React.useState(null);
+  const [editText, setEditText] = React.useState('');
+
   const baseStart = new Date(WEEK_START);
   baseStart.setDate(baseStart.getDate() + weekOffset * 7);
   const numDays = range === 'week' ? 5 : 10;
@@ -154,52 +141,68 @@ function MatrixView({ navigate }) {
     return d.toISOString().slice(0,10);
   });
 
-  // Range label
   const rangeStart = new Date(dateList[0]);
-  const rangeEnd = new Date(dateList[dateList.length-1]);
+  const rangeEnd   = new Date(dateList[dateList.length-1]);
   const rangeLabel = `${rangeStart.getDate()}.${rangeStart.getMonth()+1} – ${rangeEnd.getDate()}.${rangeEnd.getMonth()+1}.${rangeEnd.getFullYear()}`;
 
-  // Lookup
-  const getAssignment = (producerId, date) =>
-    assignments.find(a => a.producer === producerId && a.date === date);
+  // All assignments for a producer+date (multiple allowed)
+  const getCellAssignments = (producerId, date) =>
+    assignments.filter(a => a.producer === producerId && a.date === date);
 
-  // Per-producer total in range
+  // Per-producer total hours in visible range
   const producerTotals = {};
   PRODUCERS.forEach(pr => {
-    const sum = assignments
+    producerTotals[pr.id] = assignments
       .filter(a => a.producer === pr.id && dateList.includes(a.date))
       .reduce((acc, a) => acc + (a.hours || 0), 0);
-    producerTotals[pr.id] = sum;
   });
 
-  // Drag/drop state
-  const [draggedProject, setDraggedProject] = React.useState(null);
-  const [dragOver, setDragOver] = React.useState(null); // {producer, date}
-
+  // Drop on a cell
   const onDropOnCell = (producerId, date) => {
-    if (!draggedProject) return;
-    setAssignments(prev => {
-      const existing = prev.find(a => a.producer === producerId && a.date === date);
-      if (existing) {
-        return prev.map(a => a === existing
-          ? { ...a, project: draggedProject, hours: a.hours || 7, label: null }
-          : a);
-      }
-      return [...prev, {
+    if (!dragItem) return;
+    if (dragItem.type === 'project') {
+      setAssignments(prev => [...prev, {
         id: 'a-new-' + Date.now(),
-        producer: producerId, date, project: draggedProject, hours: 7, label: null,
-      }];
-    });
-    setDraggedProject(null);
+        producer: producerId, date,
+        project: dragItem.projectId, hours: 7, label: null,
+      }]);
+    } else if (dragItem.type === 'assignment') {
+      setAssignments(prev => prev.map(a =>
+        a.id === dragItem.assignmentId ? { ...a, producer: producerId, date } : a
+      ));
+    }
+    setDragItem(null);
     setDragOver(null);
   };
 
-  // Unscheduled-this-range projects: active projects with no assignments in dateList
-  const scheduledIds = new Set(
+  // Drop on sidebar → unschedule the assignment
+  const onDropOnSidebar = () => {
+    if (!dragItem || dragItem.type !== 'assignment') return;
+    setAssignments(prev => prev.filter(a => a.id !== dragItem.assignmentId));
+    setDragItem(null);
+  };
+
+  // Commit a free-text note
+  const commitFreeText = () => {
+    if (!editingCell) return;
+    const text = editText.trim();
+    if (text) {
+      setAssignments(prev => [...prev, {
+        id: 'a-text-' + Date.now(),
+        producer: editingCell.producer, date: editingCell.date,
+        project: null, hours: 0, label: text,
+      }]);
+    }
+    setEditingCell(null);
+    setEditText('');
+  };
+
+  // Unscheduled: active projects not appearing in any cell of current range
+  const scheduledProjectIds = new Set(
     assignments.filter(a => dateList.includes(a.date) && a.project).map(a => a.project)
   );
   const unscheduled = PROJECTS.filter(p =>
-    p.status !== 'done' && p.status !== 'frozen' && !scheduledIds.has(p.id)
+    p.status !== 'done' && p.status !== 'frozen' && !scheduledProjectIds.has(p.id)
   );
 
   return (
@@ -223,7 +226,6 @@ function MatrixView({ navigate }) {
         </>}
       />
 
-      {/* Range toggle + legend */}
       <div className="filters">
         <span className="filters-label">תצוגה:</span>
         <div className="seg-toggle">
@@ -238,12 +240,12 @@ function MatrixView({ navigate }) {
         </div>
       </div>
 
-      {/* Main: sidebar + matrix */}
       <div className="matrix-wrap">
         <UnscheduledSidebar
           projects={unscheduled}
-          draggedProject={draggedProject}
-          setDraggedProject={setDraggedProject}
+          dragItem={dragItem}
+          setDragItem={setDragItem}
+          onDropOnSidebar={onDropOnSidebar}
         />
 
         <div className="matrix-card">
@@ -252,9 +254,9 @@ function MatrixView({ navigate }) {
               <tr>
                 <th className="prod-col">מפיק.ה</th>
                 {dateList.map((dt, i) => {
-                  const isToday = dt === TODAY_MX.toISOString().slice(0,10);
+                  const isToday   = dt === TODAY_MX.toISOString().slice(0,10);
                   const isHoliday = HOLIDAYS[dt];
-                  const dayInfo = formatDayHeader(dt);
+                  const dayInfo   = formatDayHeader(dt);
                   return (
                     <th key={i} className={'day-col ' + (isToday?'today':'') + (isHoliday?' holiday':'')}>
                       <div className="day-name">{dayInfo.name}</div>
@@ -267,9 +269,9 @@ function MatrixView({ navigate }) {
             </thead>
             <tbody>
               {PRODUCERS.map(prod => {
-                const total = producerTotals[prod.id];
+                const total    = producerTotals[prod.id];
                 const targetHrs = numDays === 5 ? 45 : 90;
-                const pct = total / targetHrs;
+                const pct      = total / targetHrs;
                 return (
                   <tr key={prod.id}>
                     <td className="prod-cell" onClick={() => navigate('producer', prod.id)}>
@@ -283,17 +285,30 @@ function MatrixView({ navigate }) {
                       <CapacityBar value={pct}/>
                     </td>
                     {dateList.map(dt => {
-                      const a = getAssignment(prod.id, dt);
-                      const isHoliday = HOLIDAYS[dt];
+                      const cellAssignments = getCellAssignments(prod.id, dt);
+                      const isHoliday  = HOLIDAYS[dt];
                       const isDragOver = dragOver && dragOver.producer === prod.id && dragOver.date === dt;
+                      const isEditing  = editingCell && editingCell.producer === prod.id && editingCell.date === dt;
 
                       return (
                         <td key={dt}
-                            className={'cell ' + (dt===TODAY_MX.toISOString().slice(0,10)?'today ':'') + (isDragOver?'drag-over ':'') + (isHoliday?'holiday-cell ':'')}
-                            onDragOver={(e) => { if (draggedProject) { e.preventDefault(); setDragOver({producer:prod.id, date:dt}); }}}
-                            onDragLeave={() => setDragOver(null)}
-                            onDrop={() => onDropOnCell(prod.id, dt)}>
-                          <CellContent a={a} holiday={isHoliday} onProjectClick={(pid)=>setProjectModal(pid)}/>
+                          className={'cell ' + (dt===TODAY_MX.toISOString().slice(0,10)?'today ':'') + (isDragOver?'drag-over ':'') + (isHoliday?'holiday-cell ':'')}
+                          onDragOver={e => { if (dragItem) { e.preventDefault(); setDragOver({producer:prod.id, date:dt}); }}}
+                          onDragLeave={() => setDragOver(null)}
+                          onDrop={() => onDropOnCell(prod.id, dt)}>
+                          <CellContent
+                            assignments={cellAssignments}
+                            holiday={isHoliday}
+                            onProjectClick={pid => setProjectModal(pid)}
+                            dragItem={dragItem}
+                            setDragItem={setDragItem}
+                            isEditing={isEditing}
+                            editText={editText}
+                            setEditText={setEditText}
+                            onStartEdit={() => { setEditingCell({producer:prod.id, date:dt}); setEditText(''); }}
+                            onCommitEdit={commitFreeText}
+                            onCancelEdit={() => { setEditingCell(null); setEditText(''); }}
+                          />
                         </td>
                       );
                     })}
@@ -310,7 +325,7 @@ function MatrixView({ navigate }) {
           projectId={projectModal}
           assignments={assignments}
           onClose={() => setProjectModal(null)}
-          onOpenProducer={(pid) => { setProjectModal(null); navigate('producer', pid); }}
+          onOpenProducer={pid => { setProjectModal(null); navigate('producer', pid); }}
         />
       )}
     </>
@@ -318,10 +333,12 @@ function MatrixView({ navigate }) {
 }
 
 // ════════════════════════════════════════════════
-// Sidebar — unscheduled projects (drag source)
+// Unscheduled sidebar — drag source + drop target
 // ════════════════════════════════════════════════
-function UnscheduledSidebar({ projects, draggedProject, setDraggedProject }) {
+function UnscheduledSidebar({ projects, dragItem, setDragItem, onDropOnSidebar }) {
   const [collapsed, setCollapsed] = React.useState(false);
+  const canDropHere = dragItem?.type === 'assignment';
+
   return (
     <aside className={'matrix-sidebar ' + (collapsed?'collapsed':'')}>
       <div className="sidebar-head">
@@ -335,20 +352,27 @@ function UnscheduledSidebar({ projects, draggedProject, setDraggedProject }) {
       </div>
 
       {!collapsed && (
-        <div className="sidebar-body">
-          {projects.length === 0 ? (
+        <div
+          className={'sidebar-body ' + (canDropHere ? 'sidebar-drop-target' : '')}
+          onDragOver={e => { if (canDropHere) e.preventDefault(); }}
+          onDrop={onDropOnSidebar}>
+          {canDropHere && (
+            <div className="sidebar-drop-hint">גרור לכאן להסרה מהלוח</div>
+          )}
+          {projects.length === 0 && !canDropHere ? (
             <div className="sidebar-empty">כל הפרויקטים משובצים 🎉</div>
           ) : projects.map(p => {
             const s = STATUSES[p.status];
             const dueRef = _rEndMx(p.due);
-            const due = dueRef ? new Date(dueRef) : null;
+            const due  = dueRef ? new Date(dueRef) : null;
             const days = due ? Math.ceil((due - TODAY_MX) / (1000*60*60*24)) : null;
+            const isDragging = dragItem?.type === 'project' && dragItem?.projectId === p.id;
             return (
               <div key={p.id}
-                   className={'unscheduled-card ' + (draggedProject===p.id?'is-dragging':'')}
-                   draggable
-                   onDragStart={() => setDraggedProject(p.id)}
-                   onDragEnd={() => setDraggedProject(null)}>
+                className={'unscheduled-card ' + (isDragging?'is-dragging':'')}
+                draggable
+                onDragStart={() => setDragItem({ type: 'project', projectId: p.id })}
+                onDragEnd={() => setDragItem(null)}>
                 <div className="unsch-name">
                   {p.urgency==='hot' && <span style={{marginInlineEnd:4}}>🔥</span>}
                   {p.name}
@@ -372,57 +396,94 @@ function UnscheduledSidebar({ projects, draggedProject, setDraggedProject }) {
 }
 
 // ════════════════════════════════════════════════
-// Cell content
+// Cell content — multiple assignments + free text
 // ════════════════════════════════════════════════
-function CellContent({ a, holiday, onProjectClick }) {
-  if (holiday) {
-    return <div className={'cell-holiday ' + (holiday.kind || '')}>
-      <div className="cell-holiday-label">{holiday.label}</div>
-    </div>;
+function CellContent({ assignments, holiday, onProjectClick, dragItem, setDragItem, isEditing, editText, setEditText, onStartEdit, onCommitEdit, onCancelEdit }) {
+  // Pure holiday with no manual assignments
+  if (holiday && assignments.length === 0) {
+    return (
+      <div className={'cell-holiday ' + (holiday.kind || '')}>
+        <div className="cell-holiday-label">{holiday.label}</div>
+      </div>
+    );
   }
-  if (!a) return null;
-  if (!a.project) {
-    const isVac = a.label && (a.label.includes('חופש') || a.label.includes('זיכרון') || a.label.includes('עצמאות'));
-    return <div className={'cell-state ' + (isVac ? 'vacation' : 'free')}>{a.label}</div>;
-  }
-  const proj = PROJECTS.find(p => p.id === a.project);
-  if (!proj) return null;
-  const s = STATUSES[proj.status];
+
   return (
-    <div className="cell-entry"
-         style={{borderInlineEndColor: s.color, background: s.bg}}
-         onClick={(e) => { e.stopPropagation(); onProjectClick(proj.id); }}>
-      <div className="cell-entry-name">
-        {proj.urgency==='hot' && <span className="cell-fire">🔥</span>}
-        {proj.name}
-      </div>
-      <div className="cell-entry-client">{proj.client || proj.type}</div>
-      <div className="cell-entry-foot">
-        <span className="cell-entry-hours">{a.hours} שע׳</span>
-        <span className="cell-entry-status" style={{color:s.color}}>{s.label}</span>
-      </div>
+    <div className="cell-content-wrap">
+      {assignments.map(a => {
+        const isDraggingThis = dragItem?.type === 'assignment' && dragItem?.assignmentId === a.id;
+
+        // Free-text / vacation / free label
+        if (!a.project) {
+          const isVac = a.label && (a.label.includes('חופש') || a.label.includes('זיכרון') || a.label.includes('עצמאות'));
+          return (
+            <div key={a.id}
+              className={'cell-state ' + (isVac?'vacation':'free') + (isDraggingThis?' entry-dragging':'')}
+              style={{cursor:'grab'}}
+              draggable
+              onDragStart={e => { e.stopPropagation(); setDragItem({ type:'assignment', assignmentId:a.id }); }}
+              onDragEnd={() => setDragItem(null)}>
+              {a.label}
+            </div>
+          );
+        }
+
+        // Project assignment
+        const proj = PROJECTS.find(p => p.id === a.project);
+        if (!proj) return null;
+        const s = STATUSES[proj.status];
+        return (
+          <div key={a.id}
+            className={'cell-entry ' + (isDraggingThis?'entry-dragging':'')}
+            style={{borderInlineEndColor: s.color, background: s.bg, cursor:'grab'}}
+            draggable
+            onDragStart={e => { e.stopPropagation(); setDragItem({ type:'assignment', assignmentId:a.id }); }}
+            onDragEnd={() => setDragItem(null)}
+            onClick={e => { e.stopPropagation(); onProjectClick(proj.id); }}>
+            <div className="cell-entry-name">
+              {proj.urgency==='hot' && <span className="cell-fire">🔥</span>}
+              {proj.name}
+            </div>
+            <div className="cell-entry-client">{proj.client || proj.type}</div>
+            <div className="cell-entry-foot">
+              <span className="cell-entry-hours">{a.hours} שע׳</span>
+              <span className="cell-entry-status" style={{color:s.color}}>{s.label}</span>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Free text input or add button */}
+      {isEditing ? (
+        <input autoFocus className="cell-add-input"
+          placeholder="חופשה / ישיבה / הערה..."
+          value={editText}
+          onChange={e => setEditText(e.target.value)}
+          onKeyDown={e => { if (e.key==='Enter') onCommitEdit(); if (e.key==='Escape') onCancelEdit(); }}
+          onBlur={onCommitEdit}/>
+      ) : (
+        <button className="cell-add-btn"
+          onClick={e => { e.stopPropagation(); onStartEdit(); }}
+          title="הוסף הערה">+</button>
+      )}
     </div>
   );
 }
 
 // ════════════════════════════════════════════════
-// Project modal — single project across all producers
+// Project modal
 // ════════════════════════════════════════════════
 function ProjectModal({ projectId, assignments, onClose, onOpenProducer }) {
   const proj = PROJECTS.find(p => p.id === projectId);
   if (!proj) return null;
   const s = STATUSES[proj.status];
-  // All assignments for this project
   const projAssignments = assignments.filter(a => a.project === projectId);
-  // Group by producer
   const byProducer = {};
   projAssignments.forEach(a => {
     if (!byProducer[a.producer]) byProducer[a.producer] = [];
     byProducer[a.producer].push(a);
   });
-  // Total hours assigned in shown data
   const totalAssigned = projAssignments.reduce((acc, a) => acc + (a.hours||0), 0);
-  // All dates that have assignments — sorted
   const allDates = [...new Set(projAssignments.map(a => a.date))].sort();
 
   React.useEffect(() => {
@@ -433,7 +494,7 @@ function ProjectModal({ projectId, assignments, onClose, onOpenProducer }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
         <div className="modal-head" style={{borderInlineStart:'4px solid '+ s.color}}>
           <div>
             <div className="modal-eyebrow">{proj.client || '—'} · {proj.type}</div>
@@ -444,8 +505,8 @@ function ProjectModal({ projectId, assignments, onClose, onOpenProducer }) {
             <div className="modal-meta-row">
               <span><StatusPill status={proj.status}/></span>
               {proj.start && <span>כניסה: <b>{_fmtRange(proj.start)}</b></span>}
-              {proj.due && <span>הגשה: <b>{_fmtRange(proj.due)}</b></span>}
-              {proj.pm && <span>מנהל.ת: <b>{proj.pm}</b></span>}
+              {proj.due   && <span>הגשה: <b>{_fmtRange(proj.due)}</b></span>}
+              {proj.pm    && <span>מנהל.ת: <b>{proj.pm}</b></span>}
               {proj.complexity && <span>מורכבות: <b>{proj.complexity}</b></span>}
             </div>
           </div>
@@ -453,7 +514,6 @@ function ProjectModal({ projectId, assignments, onClose, onOpenProducer }) {
         </div>
 
         <div className="modal-body">
-          {/* Top stats */}
           <div className="modal-stats">
             <div className="modal-stat">
               <div className="modal-stat-label">תקציב שעות</div>
@@ -475,7 +535,6 @@ function ProjectModal({ projectId, assignments, onClose, onOpenProducer }) {
             </div>
           </div>
 
-          {/* Producers + their dates */}
           <div className="modal-section-title">שיבוצים</div>
           <div className="modal-producers">
             {Object.entries(byProducer).map(([pid, asses]) => {
@@ -503,7 +562,6 @@ function ProjectModal({ projectId, assignments, onClose, onOpenProducer }) {
             })}
           </div>
 
-          {/* Notes */}
           {proj.notes && (
             <>
               <div className="modal-section-title">הערות</div>
