@@ -315,7 +315,10 @@ function MatrixView({ navigate }) {
                         <Avatar producer={prod.id}/>
                         <div>
                           <div className="prod-name">{prod.name}</div>
-                          <div className="prod-stats">{total} שע׳ · {Math.round(pct*100)}%</div>
+                          <div className="prod-stats">
+                            {total} שע׳ · {Math.round(pct*100)}%
+                            {(prod.positionPct ?? 1) < 1 && <span className="prod-position-pct">{Math.round(prod.positionPct*100)}% משרה</span>}
+                          </div>
                         </div>
                       </div>
                       <CapacityBar value={pct}/>

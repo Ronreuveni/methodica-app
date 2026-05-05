@@ -42,7 +42,7 @@ function Sidebar({ view, setView, selectedProducer, producers, setProducers }) {
   const addProducer = () => {
     if (!newName.trim()) return;
     const id = 'p_' + Date.now();
-    const updated = [...producers, { id, name: newName.trim(), color: newColor, capacity: 0.75, hoursWeek: 35 }];
+    const updated = [...producers, { id, name: newName.trim(), color: newColor, capacity: 0.75, hoursWeek: 35, positionPct: 1.0 }];
     setProducers(updated);
     setAddingProducer(false);
     setNewName('');

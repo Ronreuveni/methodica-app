@@ -86,7 +86,7 @@ function App() {
       <main className="main">
         {view === 'board' && <BoardView navigate={navigate}/>}
         {view === 'matrix' && <MatrixView navigate={navigate}/>}
-        {view === 'producer' && <ProducerView producerId={producerId} navigate={navigate}/>}
+        {view === 'producer' && <ProducerView producerId={producerId} navigate={navigate} producers={producers} setProducers={setProducers}/>}
       </main>
       <TweaksPanel title="Tweaks">
         <TweakSection label="פריסה"/>

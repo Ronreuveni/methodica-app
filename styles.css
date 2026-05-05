@@ -1195,6 +1195,51 @@ select.cell-input { padding: 5px 8px; }
   font-size: 9px; color: var(--ink-500); font-weight: 600;
 }
 
+/* ── Producer edit panel ── */
+.prod-edit-btn {
+  margin-inline-start: 8px;
+  background: none; border: none; cursor: pointer;
+  font-size: 14px; color: var(--ink-400);
+  opacity: 0; transition: opacity .15s;
+  vertical-align: middle; padding: 2px 4px; border-radius: 4px;
+}
+.prod-hero-name:hover .prod-edit-btn,
+.prod-edit-btn:focus { opacity: 1; color: var(--brand-orange); }
+
+.prod-pct-badge {
+  margin-inline-start: 8px;
+  background: #FEF1E4; color: var(--brand-orange);
+  font-size: 11px; font-weight: 700;
+  padding: 1px 7px; border-radius: 20px;
+  border: 1px solid #F5C89A;
+}
+
+.prod-edit-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 18px 22px;
+  display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;
+  margin-bottom: 4px;
+}
+.prod-edit-row { display: flex; flex-direction: column; gap: 6px; }
+.prod-edit-label { font-size: 11px; font-weight: 700; color: var(--ink-500); text-transform: uppercase; letter-spacing: 0.5px; }
+.prod-edit-input {
+  padding: 7px 10px; border: 1.5px solid var(--line); border-radius: var(--r-md);
+  font-family: inherit; font-size: 14px; font-weight: 600; color: var(--ink-900);
+  background: #fff; min-width: 180px; outline: none;
+}
+.prod-edit-input:focus { border-color: var(--brand-orange); box-shadow: 0 0 0 2px rgba(236,130,35,.15); }
+.prod-edit-color { width: 40px; height: 36px; border-radius: var(--r-md); border: 1.5px solid var(--line); cursor: pointer; padding: 2px; }
+.prod-edit-actions { display: flex; gap: 8px; align-self: flex-end; }
+
+.prod-position-pct {
+  margin-inline-start: 6px;
+  background: #FEF1E4; color: var(--brand-orange);
+  font-size: 10px; font-weight: 700;
+  padding: 1px 5px; border-radius: 10px;
+}
+
 /* ── Matrix cell: multiple assignments + free text ── */
 .cell-content-wrap { display: flex; flex-direction: column; gap: 4px; min-height: 80px; user-select: none; }
 

@@ -36,12 +36,30 @@ function _sameDayP(a, b) {
   return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
 }
 
-function ProducerView({ producerId, navigate }) {
-  const prod = PRODUCERS.find(p => p.id === producerId);
+function ProducerView({ producerId, navigate, producers, setProducers }) {
+  const prod = (producers || PRODUCERS).find(p => p.id === producerId);
   if (!prod) return <div>מפיק.ה לא נמצא.ה</div>;
 
-  // Week offset: 0 = current 4-week window, -1 = scrolled back, +1 = scrolled forward
   const [weekOffset, setWeekOffset] = React.useState(0);
+  const [editing, setEditing] = React.useState(false);
+  const [editName, setEditName] = React.useState('');
+  const [editColor, setEditColor] = React.useState('');
+  const [editPct, setEditPct] = React.useState(1);
+
+  const startEdit = () => {
+    setEditName(prod.name);
+    setEditColor(prod.color);
+    setEditPct(prod.positionPct ?? 1);
+    setEditing(true);
+  };
+  const saveEdit = () => {
+    if (!editName.trim()) return;
+    setProducers(prev => prev.map(p => p.id === producerId
+      ? { ...p, name: editName.trim(), color: editColor, positionPct: editPct }
+      : p
+    ));
+    setEditing(false);
+  };
 
   const myProjects = PROJECTS.filter(p => p.producers.includes(producerId) && p.status !== 'done');
   const _isR = (v) => v && typeof v === 'object' && ('from' in v || 'to' in v);
@@ -137,8 +155,14 @@ function ProducerView({ producerId, navigate }) {
         <div className="prod-hero-id">
           <span className="avatar lg" style={{background:prod.color}}>{prod.name.charAt(0)}</span>
           <div>
-            <div className="prod-hero-name">{prod.name}</div>
-            <div className="prod-hero-role">מפיק.ת דיגיטל</div>
+            <div className="prod-hero-name">
+              {prod.name}
+              <button className="prod-edit-btn" onClick={startEdit} title="ערוך פרטים">✎</button>
+            </div>
+            <div className="prod-hero-role">
+              מפיק.ת דיגיטל
+              {(prod.positionPct ?? 1) < 1 && <span className="prod-pct-badge">{Math.round((prod.positionPct)*100)}% משרה</span>}
+            </div>
           </div>
         </div>
         <div className="prod-hero-kpi">
@@ -165,6 +189,36 @@ function ProducerView({ producerId, navigate }) {
           ) : <div className="prod-hero-kpi-value">—</div>}
         </div>
       </div>
+
+      {/* Inline edit panel */}
+      {editing && (
+        <div className="prod-edit-panel">
+          <div className="prod-edit-row">
+            <label className="prod-edit-label">שם</label>
+            <input className="prod-edit-input" value={editName} autoFocus
+              onChange={e => setEditName(e.target.value)}
+              onKeyDown={e => { if (e.key==='Enter') saveEdit(); if (e.key==='Escape') setEditing(false); }}/>
+          </div>
+          <div className="prod-edit-row">
+            <label className="prod-edit-label">צבע</label>
+            <input type="color" className="prod-edit-color" value={editColor} onChange={e => setEditColor(e.target.value)}/>
+          </div>
+          <div className="prod-edit-row">
+            <label className="prod-edit-label">היקף משרה</label>
+            <div className="seg-toggle">
+              {[0.5, 0.6, 0.75, 0.8, 1.0].map(v => (
+                <button key={v} className={editPct === v ? 'active' : ''} onClick={() => setEditPct(v)}>
+                  {Math.round(v*100)}%
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="prod-edit-actions">
+            <button className="btn btn-primary" onClick={saveEdit}>שמור</button>
+            <button className="btn btn-ghost" onClick={() => setEditing(false)}>ביטול</button>
+          </div>
+        </div>
+      )}
 
       {/* 4-week strip */}
       <div className="card timeline-card">
