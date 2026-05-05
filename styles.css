@@ -1196,15 +1196,6 @@ select.cell-input { padding: 5px 8px; }
 }
 
 /* ── Producer edit panel ── */
-.prod-edit-btn {
-  margin-inline-start: 8px;
-  background: none; border: none; cursor: pointer;
-  font-size: 14px; color: var(--ink-400);
-  opacity: 0; transition: opacity .15s;
-  vertical-align: middle; padding: 2px 4px; border-radius: 4px;
-}
-.prod-hero-name:hover .prod-edit-btn,
-.prod-edit-btn:focus { opacity: 1; color: var(--brand-orange); }
 
 .prod-pct-badge {
   margin-inline-start: 8px;

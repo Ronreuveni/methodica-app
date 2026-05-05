@@ -144,10 +144,9 @@ function ProducerView({ producerId, navigate, producers, setProducers }) {
       <PageHead
         title={'לו״ז הפקות · ' + prod.name}
         sub={rangeLabel}
-        actions={<>
-          <button className="btn btn-ghost">שלח דוח שבועי</button>
-          <button className="btn"><Icons.calendar/> ייצוא ללוח שנה</button>
-        </>}
+        actions={
+          <button className="btn" onClick={startEdit}>✎ ערוך פרטים</button>
+        }
       />
 
       {/* Hero card */}
@@ -155,13 +154,10 @@ function ProducerView({ producerId, navigate, producers, setProducers }) {
         <div className="prod-hero-id">
           <span className="avatar lg" style={{background:prod.color}}>{prod.name.charAt(0)}</span>
           <div>
-            <div className="prod-hero-name">
-              {prod.name}
-              <button className="prod-edit-btn" onClick={startEdit} title="ערוך פרטים">✎</button>
-            </div>
+            <div className="prod-hero-name">{prod.name}</div>
             <div className="prod-hero-role">
               מפיק.ת דיגיטל
-              {(prod.positionPct ?? 1) < 1 && <span className="prod-pct-badge">{Math.round((prod.positionPct)*100)}% משרה</span>}
+              {(prod.positionPct ?? 1) < 1 && <span className="prod-pct-badge">{Math.round(prod.positionPct*100)}% משרה</span>}
             </div>
           </div>
         </div>
