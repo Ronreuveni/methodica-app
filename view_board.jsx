@@ -207,6 +207,7 @@ function BoardView({ navigate }) {
       {mode === 'table' ? (
         <BoardTable
           rows={visible}
+          allRows={projects}
           editing={editing} setEditing={setEditing}
           updateProject={updateProject} removeProject={removeProject}
           tab={tab}
@@ -222,9 +223,68 @@ function BoardView({ navigate }) {
 // TABLE
 // ═════════════════════════════════════════════════════════════
 
-function BoardTable({ rows, editing, setEditing, updateProject, removeProject, tab }) {
+// ─── Column filter dropdown ───
+function ColFilter({ label, values, active, onChange }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef();
+  React.useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  const allSelected = active.length === 0;
+  const toggle = (v) => {
+    if (active.includes(v)) onChange(active.filter(x => x !== v));
+    else onChange([...active, v]);
+  };
+  return (
+    <div className="col-filter-wrap" ref={ref}>
+      <button className={'col-filter-btn ' + (!allSelected ? 'col-filter-active' : '')} onClick={() => setOpen(o => !o)}>
+        {label} {!allSelected && <span className="col-filter-dot"/>} ▾
+      </button>
+      {open && (
+        <div className="col-filter-dropdown">
+          <div className="col-filter-opt" onClick={() => { onChange([]); }}>
+            <input type="checkbox" readOnly checked={allSelected}/> <span>הכל</span>
+          </div>
+          {values.map(v => (
+            <div key={v} className="col-filter-opt" onClick={() => toggle(v)}>
+              <input type="checkbox" readOnly checked={active.includes(v)}/> <span>{v}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BoardTable({ rows, editing, setEditing, updateProject, removeProject, tab, allRows }) {
   const startEdit = (rowId, field) => setEditing({ rowId, field });
   const stopEdit = () => setEditing(null);
+
+  // Column filters — independent of top-bar filters
+  const [fClient, setFClient] = React.useState([]);
+  const [fType, setFType] = React.useState([]);
+  const [fProducer, setFProducer] = React.useState([]);
+  const [fPm, setFPm] = React.useState([]);
+  const [fStatus, setFStatus] = React.useState([]);
+
+  const pool = allRows || rows;
+  const clients   = [...new Set(pool.map(p => p.client).filter(Boolean))].sort();
+  const types     = [...new Set(pool.map(p => p.type).filter(Boolean))].sort();
+  const producers = [...new Set(pool.flatMap(p => p.producers || []))].map(id => PRODUCERS.find(x=>x.id===id)).filter(Boolean);
+  const pms       = [...new Set(pool.map(p => p.pm).filter(Boolean))].sort();
+  const statuses  = [...new Set(pool.map(p => p.status).filter(Boolean))];
+
+  const filtered = rows.filter(p => {
+    if (fClient.length   && !fClient.includes(p.client)) return false;
+    if (fType.length     && !fType.includes(p.type)) return false;
+    if (fProducer.length && !fProducer.some(id => (p.producers||[]).includes(id))) return false;
+    if (fPm.length       && !fPm.includes(p.pm)) return false;
+    if (fStatus.length   && !fStatus.includes(p.status)) return false;
+    return true;
+  });
 
   return (
     <div className="card">
@@ -233,23 +293,23 @@ function BoardTable({ rows, editing, setEditing, updateProject, removeProject, t
           <tr>
             <th style={{width:30}}></th>
             <th>שם פרויקט</th>
-            <th>לקוח</th>
-            <th>סוג הפקה</th>
-            <th>מפיק.ה</th>
-            <th>מנהל.ת פרויקט</th>
+            <th><ColFilter label="לקוח" values={clients} active={fClient} onChange={setFClient}/></th>
+            <th><ColFilter label="סוג הפקה" values={types} active={fType} onChange={setFType}/></th>
+            <th><ColFilter label="מפיק.ה" values={producers.map(p=>p.id)} active={fProducer} onChange={setFProducer}/></th>
+            <th><ColFilter label="מנהל.ת" values={pms} active={fPm} onChange={setFPm}/></th>
             <th style={{textAlign:'start'}}>שעות</th>
             <th>כניסה להפקה</th>
             <th>מועד הגשה</th>
-            <th>סטטוס</th>
+            <th><ColFilter label="סטטוס" values={statuses} active={fStatus} onChange={setFStatus}/></th>
             <th style={{width:40}}></th>
           </tr>
         </thead>
         <tbody>
-          {rows.length === 0 ? (
-            <tr><td colSpan={10} style={{padding:'40px 20px', textAlign:'center', color:'var(--ink-500)'}}>
+          {filtered.length === 0 ? (
+            <tr><td colSpan={11} style={{padding:'40px 20px', textAlign:'center', color:'var(--ink-500)'}}>
               {tab==='done' ? 'אין פרויקטים שהושלמו עם הפילטרים האלה.' : 'אין פרויקטים פעילים תואמים.'}
             </td></tr>
-          ) : rows.map(p => (
+          ) : filtered.map(p => (
             <BoardRow key={p.id} p={p}
               editing={editing} startEdit={startEdit} stopEdit={stopEdit}
               updateProject={updateProject} removeProject={removeProject}/>

@@ -233,13 +233,11 @@ function MatrixView({ navigate }) {
     setEditText('');
   };
 
-  // Unscheduled: active projects not appearing in any cell of current range
+  // All active projects — any project can be slotted multiple times
   const scheduledProjectIds = new Set(
     assignments.filter(a => dateList.includes(a.date) && a.project).map(a => a.project)
   );
-  const unscheduled = PROJECTS.filter(p =>
-    p.status !== 'done' && p.status !== 'frozen' && !scheduledProjectIds.has(p.id)
-  );
+  const unscheduled = PROJECTS.filter(p => p.status !== 'done' && p.status !== 'frozen');
 
   return (
     <>
@@ -279,6 +277,7 @@ function MatrixView({ navigate }) {
       <div className="matrix-wrap">
         <UnscheduledSidebar
           projects={unscheduled}
+          scheduledIds={scheduledProjectIds}
           dragItem={dragItem}
           setDragItem={setDragItem}
           onDropOnSidebar={onDropOnSidebar}
@@ -374,16 +373,17 @@ function MatrixView({ navigate }) {
 // ════════════════════════════════════════════════
 // Unscheduled sidebar — drag source + drop target
 // ════════════════════════════════════════════════
-function UnscheduledSidebar({ projects, dragItem, setDragItem, onDropOnSidebar }) {
+function UnscheduledSidebar({ projects, scheduledIds, dragItem, setDragItem, onDropOnSidebar }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const canDropHere = dragItem?.type === 'assignment';
+  const scheduledCount = projects.filter(p => scheduledIds && scheduledIds.has(p.id)).length;
 
   return (
     <aside className={'matrix-sidebar ' + (collapsed?'collapsed':'')}>
       <div className="sidebar-head">
         <div>
-          <div className="sidebar-title">פרויקטים לא משובצים</div>
-          <div className="sidebar-sub">{projects.length} פרויקטים · גרור לתא ביומן</div>
+          <div className="sidebar-title">שיבוץ פרויקטים</div>
+          <div className="sidebar-sub">{projects.length} פרויקטים{scheduledCount > 0 ? ` · ${scheduledCount} משובצים` : ''}</div>
         </div>
         <button className="sidebar-toggle" onClick={() => setCollapsed(c => !c)}>
           {collapsed ? '«' : '»'}
@@ -406,9 +406,10 @@ function UnscheduledSidebar({ projects, dragItem, setDragItem, onDropOnSidebar }
             const due  = dueRef ? new Date(dueRef) : null;
             const days = due ? Math.ceil((due - TODAY_MX) / (1000*60*60*24)) : null;
             const isDragging = dragItem?.type === 'project' && dragItem?.projectId === p.id;
+            const isScheduled = scheduledIds && scheduledIds.has(p.id);
             return (
               <div key={p.id}
-                className={'unscheduled-card ' + (isDragging?'is-dragging':'')}
+                className={'unscheduled-card ' + (isDragging?'is-dragging':'') + (isScheduled?' is-scheduled':'')}
                 draggable
                 onDragStart={e => {
                   _drag = { type: 'project', projectId: p.id };
@@ -420,6 +421,7 @@ function UnscheduledSidebar({ projects, dragItem, setDragItem, onDropOnSidebar }
                 <div className="unsch-name">
                   {p.urgency==='hot' && <span style={{marginInlineEnd:4}}>🔥</span>}
                   {p.name}
+                  {isScheduled && <span className="unsch-scheduled-badge">✓ משובץ</span>}
                 </div>
                 <div className="unsch-meta">{p.client || '—'} · {p.type}</div>
                 <div className="unsch-foot">

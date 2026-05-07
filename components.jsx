@@ -29,10 +29,20 @@ function Brand() {
   );
 }
 
-function Sidebar({ view, setView, selectedProducer, producers, setProducers }) {
+function Sidebar({ view, setView, selectedProducer, producers, setProducers, teams, setTeams }) {
+  // Producer add form
   const [addingProducer, setAddingProducer] = React.useState(false);
   const [newName, setNewName] = React.useState('');
   const [newColor, setNewColor] = React.useState('#5B8DD9');
+  const [isExternal, setIsExternal] = React.useState(false);
+
+  // Team add form
+  const [addingTeam, setAddingTeam] = React.useState(false);
+  const [newTeamName, setNewTeamName] = React.useState('');
+  const [newTeamLeader, setNewTeamLeader] = React.useState('');
+  const [collapsedTeams, setCollapsedTeams] = React.useState({});
+
+  const safeTeams = teams || [];
 
   const nav = [
     { id: 'board',  label: 'לוח הפקות',  icon: Icons.board,  badge: PROJECTS.length },
@@ -42,11 +52,8 @@ function Sidebar({ view, setView, selectedProducer, producers, setProducers }) {
   const addProducer = () => {
     if (!newName.trim()) return;
     const id = 'p_' + Date.now();
-    const updated = [...producers, { id, name: newName.trim(), color: newColor, capacity: 0.75, hoursWeek: 35, positionPct: 1.0 }];
-    setProducers(updated);
-    setAddingProducer(false);
-    setNewName('');
-    setNewColor('#5B8DD9');
+    setProducers(prev => [...prev, { id, name: newName.trim(), color: newColor, capacity: 0.75, hoursWeek: 35, positionPct: 1.0, isExternal }]);
+    setAddingProducer(false); setNewName(''); setNewColor('#5B8DD9'); setIsExternal(false);
   };
 
   const removeProducer = (id) => {
@@ -54,6 +61,52 @@ function Sidebar({ view, setView, selectedProducer, producers, setProducers }) {
     setProducers(prev => prev.filter(p => p.id !== id));
     if (view === 'producer' && selectedProducer === id) setView('board');
   };
+
+  const addTeam = () => {
+    if (!newTeamName.trim()) return;
+    const id = 't_' + Date.now();
+    setTeams(prev => [...prev, { id, name: newTeamName.trim(), leaderId: newTeamLeader || null }]);
+    setNewTeamName(''); setNewTeamLeader(''); setAddingTeam(false);
+  };
+
+  const removeTeam = (teamId) => {
+    if (!confirm('להסיר קבוצה זו? המפיקים לא יימחקו.')) return;
+    setTeams(prev => prev.filter(t => t.id !== teamId));
+    setProducers(prev => prev.map(p => p.teamId === teamId ? { ...p, teamId: null } : p));
+  };
+
+  const toggleTeam = (teamId) => setCollapsedTeams(prev => ({ ...prev, [teamId]: !prev[teamId] }));
+
+  const assignTeam = (producerId, teamId) =>
+    setProducers(prev => prev.map(p => p.id === producerId ? { ...p, teamId: teamId || null } : p));
+
+  const renderProdItem = (p, inTeam, isLeader) => (
+    <div key={p.id}
+      className={'nav-item nav-item-producer ' + (inTeam ? 'team-member ' : '') + (view==='producer' && selectedProducer===p.id ? 'active' : '')}
+      onClick={() => setView('producer', p.id)}>
+      <span className={'avatar sm' + (p.isExternal ? ' avatar-ext' : '')} style={{background:p.color}}>{p.name.charAt(0)}</span>
+      <span className="prod-nav-label">
+        {isLeader && <span className="team-leader-star">★</span>}
+        {p.name}
+        {p.isExternal && <span className="ext-badge">חיצוני</span>}
+      </span>
+      <span className="nav-badge">{Math.round((p.positionPct ?? 1)*100)}%</span>
+      {inTeam ? (
+        <button className="prod-remove-btn" title="הוצא מקבוצה"
+          onClick={e => { e.stopPropagation(); assignTeam(p.id, null); }}>←</button>
+      ) : safeTeams.length > 0 && (
+        <select className="prod-team-select" value={p.teamId || ''}
+          onClick={e => e.stopPropagation()}
+          onChange={e => { e.stopPropagation(); assignTeam(p.id, e.target.value); }}>
+          <option value="">ללא קבוצה</option>
+          {safeTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+      )}
+      <button className="prod-remove-btn" onClick={e => { e.stopPropagation(); removeProducer(p.id); }} title="הסר">×</button>
+    </div>
+  );
+
+  const ungrouped = producers.filter(p => !p.teamId || !safeTeams.find(t => t.id === p.teamId));
 
   return (
     <aside className="sidebar">
@@ -71,23 +124,30 @@ function Sidebar({ view, setView, selectedProducer, producers, setProducers }) {
           );
         })}
 
+        {/* Teams */}
+        {safeTeams.length > 0 && safeTeams.map(team => {
+          const members = producers.filter(p => p.teamId === team.id);
+          const isCollapsed = collapsedTeams[team.id];
+          return (
+            <div key={team.id} className="team-group">
+              <div className="team-group-header" onClick={() => toggleTeam(team.id)}>
+                <span className="team-toggle">{isCollapsed ? '▸' : '▾'}</span>
+                <span className="team-group-name">{team.name}</span>
+                {team.leaderId && <span className="team-leader-label">★ {producers.find(p=>p.id===team.leaderId)?.name?.split(' ')[0]}</span>}
+                <button className="team-remove-btn" onClick={e => { e.stopPropagation(); removeTeam(team.id); }}>×</button>
+              </div>
+              {!isCollapsed && members.map(p => renderProdItem(p, true, p.id === team.leaderId))}
+            </div>
+          );
+        })}
+
+        {/* Ungrouped producers */}
         <div className="nav-section-row">
           <span className="nav-section">מפיקים</span>
           <button className="nav-add-btn" onClick={() => setAddingProducer(a => !a)} title="הוסף מפיק.ה">+</button>
         </div>
 
-        {producers.map(p => (
-          <div key={p.id}
-            className={'nav-item nav-item-producer ' + (view==='producer' && selectedProducer===p.id?'active':'')}
-            onClick={() => setView('producer', p.id)}>
-            <span className="avatar sm" style={{background:p.color}}>{p.name.charAt(0)}</span>
-            <span>{p.name}</span>
-            <span className="nav-badge">{Math.round(p.capacity*100)}%</span>
-            <button className="prod-remove-btn"
-              onClick={e => { e.stopPropagation(); removeProducer(p.id); }}
-              title="הסר">×</button>
-          </div>
-        ))}
+        {ungrouped.map(p => renderProdItem(p, false, false))}
 
         {addingProducer && (
           <div className="add-producer-form">
@@ -95,12 +155,36 @@ function Sidebar({ view, setView, selectedProducer, producers, setProducers }) {
               <input autoFocus className="add-producer-input" placeholder="שם המפיק.ה"
                 value={newName} onChange={e => setNewName(e.target.value)}
                 onKeyDown={e => { if (e.key==='Enter') addProducer(); if (e.key==='Escape') setAddingProducer(false); }}/>
-              <input type="color" className="add-producer-color" value={newColor}
-                onChange={e => setNewColor(e.target.value)}/>
+              <input type="color" className="add-producer-color" value={newColor} onChange={e => setNewColor(e.target.value)}/>
             </div>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'var(--ink-500)',marginTop:6,cursor:'pointer'}}>
+              <input type="checkbox" checked={isExternal} onChange={e => setIsExternal(e.target.checked)}/> מפיק חיצוני
+            </label>
             <div style={{display:'flex', gap:6, marginTop:6}}>
-              <button className="btn btn-primary" style={{flex:1, padding:'6px 0', fontSize:12}} onClick={addProducer}>הוסף</button>
-              <button className="btn btn-ghost" style={{padding:'6px 10px', fontSize:12}} onClick={() => setAddingProducer(false)}>ביטול</button>
+              <button className="btn btn-primary" style={{flex:1,padding:'6px 0',fontSize:12}} onClick={addProducer}>הוסף</button>
+              <button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:12}} onClick={() => setAddingProducer(false)}>ביטול</button>
+            </div>
+          </div>
+        )}
+
+        {/* Teams management */}
+        <div className="nav-section-row">
+          <span className="nav-section">קבוצות</span>
+          <button className="nav-add-btn" onClick={() => setAddingTeam(a => !a)} title="הוסף קבוצה">+</button>
+        </div>
+
+        {addingTeam && (
+          <div className="add-producer-form">
+            <input autoFocus className="add-producer-input" placeholder="שם הקבוצה"
+              value={newTeamName} onChange={e => setNewTeamName(e.target.value)}
+              onKeyDown={e => { if (e.key==='Enter') addTeam(); if (e.key==='Escape') setAddingTeam(false); }}/>
+            <select className="add-producer-input" style={{marginTop:6}} value={newTeamLeader} onChange={e => setNewTeamLeader(e.target.value)}>
+              <option value="">ראש קבוצה (אופציונלי)</option>
+              {producers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <div style={{display:'flex', gap:6, marginTop:6}}>
+              <button className="btn btn-primary" style={{flex:1,padding:'6px 0',fontSize:12}} onClick={addTeam}>הוסף</button>
+              <button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:12}} onClick={() => setAddingTeam(false)}>ביטול</button>
             </div>
           </div>
         )}

@@ -46,6 +46,48 @@ function ProducerView({ producerId, navigate, producers, setProducers }) {
   const [editColor, setEditColor] = React.useState('');
   const [editPct, setEditPct] = React.useState(1);
 
+  // Feature 4: per-project notes { projectId: noteText }
+  const [projNotes, setProjNotes] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('prodNotes_' + producerId) || '{}'); } catch { return {}; }
+  });
+  const saveProjNote = (pid, text) => {
+    const next = { ...projNotes, [pid]: text };
+    setProjNotes(next);
+    try { localStorage.setItem('prodNotes_' + producerId, JSON.stringify(next)); } catch {}
+  };
+  const [editingNote, setEditingNote] = React.useState(null); // projectId
+
+  // Feature 5: meeting log entries [{ id, date, meetingName, summary }]
+  const [meetings, setMeetings] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('meetings_' + producerId) || '[]'); } catch { return []; }
+  });
+  const saveMeetings = (next) => {
+    setMeetings(next);
+    try { localStorage.setItem('meetings_' + producerId, JSON.stringify(next)); } catch {}
+  };
+  const [addingMeeting, setAddingMeeting] = React.useState(false);
+  const [meetDate, setMeetDate] = React.useState('');
+  const [meetName, setMeetName] = React.useState('');
+  const [meetSummary, setMeetSummary] = React.useState('');
+
+  const addMeeting = () => {
+    if (!meetSummary.trim()) return;
+    const entry = { id: 'm_' + Date.now(), date: meetDate || new Date().toISOString().slice(0,10), meetingName: meetName.trim() || 'פגישה', summary: meetSummary.trim() };
+    saveMeetings([entry, ...meetings]);
+    setMeetDate(''); setMeetName(''); setMeetSummary(''); setAddingMeeting(false);
+  };
+  const removeMeeting = (id) => saveMeetings(meetings.filter(m => m.id !== id));
+
+  // Feature 6: project status overrides { projectId: status }
+  const [statusOverrides, setStatusOverrides] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('statusOverrides') || '{}'); } catch { return {}; }
+  });
+  const updateStatus = (pid, status) => {
+    const next = { ...statusOverrides, [pid]: status };
+    setStatusOverrides(next);
+    try { localStorage.setItem('statusOverrides', JSON.stringify(next)); } catch {}
+  };
+
   const startEdit = () => {
     setEditName(prod.name);
     setEditColor(prod.color);
@@ -336,26 +378,91 @@ function ProducerView({ producerId, navigate, producers, setProducers }) {
                 <th>לקוח</th>
                 <th>שעות</th>
                 <th>סטטוס</th>
+                <th>הערות</th>
               </tr>
             </thead>
             <tbody>
               {myProjects.map(p => {
-                const client = p.client;
+                const effStatus = statusOverrides[p.id] || p.status;
+                const s = STATUSES[effStatus];
+                const note = projNotes[p.id] || '';
+                const isEditingNote = editingNote === p.id;
                 return (
                   <tr key={p.id}>
                     <td>
                       <div style={{fontWeight:600}}>{p.name}</div>
                       {p.pm && <div style={{fontSize:11, color:'var(--ink-500)', marginTop:2}}>{p.pm}</div>}
                     </td>
-                    <td><span style={{fontSize:12}}>{client || '—'}</span></td>
+                    <td><span style={{fontSize:12}}>{p.client || '—'}</span></td>
                     <td style={{fontVariantNumeric:'tabular-nums', fontWeight:600}}>{p.hours || '—'}</td>
-                    <td><StatusPill status={p.status}/></td>
+                    <td>
+                      <select className="status-select"
+                        value={effStatus}
+                        style={{background: s?.bg, color: s?.color}}
+                        onChange={e => updateStatus(p.id, e.target.value)}>
+                        {Object.entries(STATUSES).map(([k, sv]) =>
+                          <option key={k} value={k}>{sv.label}</option>
+                        )}
+                      </select>
+                    </td>
+                    <td className="proj-note-cell">
+                      {isEditingNote ? (
+                        <textarea className="proj-note-input" autoFocus rows={2}
+                          defaultValue={note}
+                          onBlur={e => { saveProjNote(p.id, e.target.value.trim()); setEditingNote(null); }}
+                          onKeyDown={e => { if (e.key==='Escape') setEditingNote(null); }}/>
+                      ) : (
+                        <div className="proj-note-text" onClick={() => setEditingNote(p.id)}>
+                          {note || <span className="proj-note-placeholder">+ הוסף הערה</span>}
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Feature 5: Meeting / status log */}
+      <div className="card" style={{marginTop:20}}>
+        <div className="card-head">
+          <div>
+            <div className="card-title">סטטוס · פגישות</div>
+            <div style={{fontSize:12, color:'var(--ink-500)'}}>{meetings.length} רשומות</div>
+          </div>
+          <button className="btn" onClick={() => setAddingMeeting(a => !a)}>+ הוסף פגישה</button>
+        </div>
+
+        {addingMeeting && (
+          <div className="meeting-add-form">
+            <div className="meeting-add-row">
+              <input type="date" className="prod-edit-input" style={{width:140}} value={meetDate} onChange={e => setMeetDate(e.target.value)}/>
+              <input className="prod-edit-input" style={{flex:1}} placeholder="שם הפגישה (למשל: פגישה שבועית)" value={meetName} onChange={e => setMeetName(e.target.value)}/>
+            </div>
+            <textarea className="meeting-summary-input" rows={3} placeholder="סיכום הפגישה..."
+              value={meetSummary} onChange={e => setMeetSummary(e.target.value)}
+              onKeyDown={e => { if (e.key==='Escape') setAddingMeeting(false); }}/>
+            <div style={{display:'flex', gap:8, marginTop:8}}>
+              <button className="btn btn-primary" onClick={addMeeting}>שמור</button>
+              <button className="btn btn-ghost" onClick={() => setAddingMeeting(false)}>ביטול</button>
+            </div>
+          </div>
+        )}
+
+        {meetings.length === 0 && !addingMeeting ? (
+          <div style={{padding:'24px 20px', color:'var(--ink-500)', fontSize:13, textAlign:'center'}}>אין רשומות פגישות עדיין.</div>
+        ) : meetings.map(m => (
+          <div key={m.id} className="meeting-row">
+            <div className="meeting-meta">
+              <span className="meeting-date">{new Date(m.date).toLocaleDateString('he-IL',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span>
+              <span className="meeting-name">{m.meetingName}</span>
+            </div>
+            <div className="meeting-summary">{m.summary}</div>
+            <button className="meeting-remove-btn" onClick={() => removeMeeting(m.id)}>×</button>
+          </div>
+        ))}
       </div>
 
       {/* History dashboard */}

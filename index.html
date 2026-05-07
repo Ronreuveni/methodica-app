@@ -42,6 +42,17 @@ function App() {
   const [producerId, setProducerId] = React.useState(() => {
     try { return localStorage.getItem('producerId') || 'ron'; } catch { return 'ron'; }
   });
+  const [teams, setTeamsRaw] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('teams') || '[]'); } catch { return []; }
+  });
+  const setTeams = React.useCallback((val) => {
+    setTeamsRaw(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      try { localStorage.setItem('teams', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
   const [producers, setProducersRaw] = React.useState(() => {
     try {
       const saved = localStorage.getItem('producers');
@@ -82,7 +93,7 @@ function App() {
 
   return (
     <div className="app">
-      <Sidebar view={view} setView={navigate} selectedProducer={producerId} producers={producers} setProducers={setProducers}/>
+      <Sidebar view={view} setView={navigate} selectedProducer={producerId} producers={producers} setProducers={setProducers} teams={teams} setTeams={setTeams}/>
       <main className="main">
         {view === 'board' && <BoardView navigate={navigate}/>}
         {view === 'matrix' && <MatrixView navigate={navigate}/>}

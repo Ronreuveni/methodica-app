@@ -1197,6 +1197,46 @@ select.cell-input { padding: 5px 8px; }
 
 /* ── Producer edit panel ── */
 
+/* ── Teams ── */
+.team-group { margin-bottom: 2px; }
+.team-group-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: var(--r-sm);
+  cursor: pointer; font-size: 12px; color: var(--ink-600);
+  user-select: none;
+}
+.team-group-header:hover { background: var(--bg-muted); }
+.team-toggle { font-size: 10px; color: var(--ink-400); flex-shrink: 0; }
+.team-group-name { font-weight: 700; flex: 1; }
+.team-leader-label { font-size: 10px; color: var(--brand-orange); font-weight: 600; white-space: nowrap; }
+.team-remove-btn { background: none; border: none; cursor: pointer; color: var(--ink-300); font-size: 14px; padding: 0 2px; opacity: 0; }
+.team-group-header:hover .team-remove-btn { opacity: 1; }
+.team-member { padding-inline-start: 20px !important; }
+.team-leader-star { color: var(--brand-orange); margin-inline-end: 3px; font-size: 11px; }
+
+/* ── Producer nav label (flex) ── */
+.prod-nav-label { flex: 1; display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* ── External producer ── */
+.avatar-ext { box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--ink-400) !important; opacity: 0.82; }
+.ext-badge { font-size: 9px; background: var(--bg-muted); color: var(--ink-500); border: 1px solid var(--line); padding: 1px 4px; border-radius: 3px; flex-shrink: 0; }
+
+/* ── Team selector per producer row ── */
+.prod-team-select {
+  font-size: 10px; padding: 1px 3px; border: 1px solid var(--line);
+  border-radius: 4px; background: var(--bg-muted); color: var(--ink-600);
+  cursor: pointer; max-width: 70px; opacity: 0; transition: opacity .15s;
+}
+.nav-item-producer:hover .prod-team-select { opacity: 1; }
+
+/* ── Matrix sidebar scheduled badge ── */
+.unsch-scheduled-badge {
+  margin-inline-start: 6px; font-size: 9px; font-weight: 700;
+  color: var(--brand-green); background: rgba(52,168,83,.1);
+  padding: 1px 5px; border-radius: 8px; white-space: nowrap;
+}
+.unscheduled-card.is-scheduled { opacity: 0.75; }
+
 .prod-pct-badge {
   margin-inline-start: 8px;
   background: #FEF1E4; color: var(--brand-orange);
@@ -1230,6 +1270,58 @@ select.cell-input { padding: 5px 8px; }
   font-size: 10px; font-weight: 700;
   padding: 1px 5px; border-radius: 10px;
 }
+
+/* ── Board table: column filters (feature 3) ── */
+.col-filter-wrap { position: relative; display: inline-block; }
+.col-filter-btn {
+  background: none; border: none; cursor: pointer; padding: 2px 4px;
+  font-size: 12px; font-weight: 600; color: var(--ink-700);
+  border-radius: var(--r-sm); white-space: nowrap;
+  display: flex; align-items: center; gap: 4px;
+}
+.col-filter-btn:hover { background: var(--bg-muted); }
+.col-filter-active { color: var(--brand-orange) !important; }
+.col-filter-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-orange); display: inline-block; }
+.col-filter-dropdown {
+  position: absolute; top: calc(100% + 4px); inset-inline-start: 0;
+  background: #fff; border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-md); z-index: 100;
+  min-width: 160px; max-height: 240px; overflow-y: auto; padding: 4px 0;
+}
+.col-filter-opt {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; cursor: pointer; font-size: 12px; color: var(--ink-700);
+}
+.col-filter-opt:hover { background: var(--bg-muted); }
+.col-filter-opt input[type=checkbox] { flex-shrink: 0; }
+
+/* ── Producer page: status select (feature 6) ── */
+.status-select {
+  border: none; border-radius: 20px; padding: 3px 8px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  font-family: inherit; outline: none;
+}
+
+/* ── Producer page: project notes (feature 4) ── */
+.proj-note-cell { max-width: 200px; }
+.proj-note-text { font-size: 12px; color: var(--ink-600); cursor: pointer; min-height: 22px; line-height: 1.4; white-space: pre-wrap; }
+.proj-note-text:hover { color: var(--brand-orange); }
+.proj-note-placeholder { color: var(--ink-300); font-style: italic; }
+.proj-note-input { width: 100%; font-family: inherit; font-size: 12px; border: 1.5px solid var(--brand-orange); border-radius: var(--r-sm); padding: 4px 6px; resize: vertical; outline: none; }
+
+/* ── Producer page: meeting log (feature 5) ── */
+.meeting-add-form { padding: 16px 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--bg-muted); }
+.meeting-add-row { display: flex; gap: 10px; margin-bottom: 8px; }
+.meeting-summary-input { width: 100%; font-family: inherit; font-size: 13px; border: 1.5px solid var(--line); border-radius: var(--r-md); padding: 8px 10px; outline: none; resize: vertical; }
+.meeting-summary-input:focus { border-color: var(--brand-orange); }
+.meeting-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+.meeting-row:last-child { border-bottom: none; }
+.meeting-meta { display: flex; flex-direction: column; gap: 3px; white-space: nowrap; }
+.meeting-date { font-size: 11px; font-weight: 700; color: var(--ink-500); }
+.meeting-name { font-size: 12px; font-weight: 700; color: var(--ink-800); }
+.meeting-summary { font-size: 13px; color: var(--ink-700); line-height: 1.5; white-space: pre-wrap; }
+.meeting-remove-btn { background: none; border: none; cursor: pointer; color: var(--ink-300); font-size: 16px; padding: 0 4px; opacity: 0; }
+.meeting-row:hover .meeting-remove-btn { opacity: 1; }
 
 /* ── Matrix cell: multiple assignments + free text ── */
 .cell-content-wrap { display: flex; flex-direction: column; gap: 4px; min-height: 80px; user-select: none; }
