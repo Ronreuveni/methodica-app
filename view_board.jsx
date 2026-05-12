@@ -389,7 +389,7 @@ function BoardTable({ rows, editing, setEditing, updateProject, removeProject, m
             <th>כניסה להפקה</th>
             <th>מועד הגשה</th>
             <th><ColFilter label="סטטוס" values={statuses} active={fStatus} onChange={setFStatus}/></th>
-            <th style={{width:40}}></th>
+            <th style={{width:70}}></th>
           </tr>
         </thead>
         <tbody>
@@ -571,11 +571,68 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
 
       {/* Row actions */}
       <td>
-        <button className="row-del" title="מחק" onClick={() => {
-          if (confirm('למחוק את "' + (p.name||'הפרויקט') + '"?')) removeProject(p.id);
-        }}>×</button>
+        <div className="cell-actions">
+          <ReportLinkButton value={p.reportLink}
+            onSave={(v) => updateProject(p.id, { reportLink: v })}/>
+          <button className="row-del" title="מחק" onClick={() => {
+            if (confirm('למחוק את "' + (p.name||'הפרויקט') + '"?')) removeProject(p.id);
+          }}>×</button>
+        </div>
       </td>
     </tr>
+  );
+}
+
+// Per-row report-link button: small link icon → popover with editable URL + Open action.
+function ReportLinkButton({ value, onSave }) {
+  const [open, setOpen] = React.useState(false);
+  const [val, setVal] = React.useState(value || '');
+  const wrapRef = React.useRef(null);
+
+  React.useEffect(() => { setVal(value || ''); }, [value]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    const id = setTimeout(() => document.addEventListener('mousedown', onDoc), 0);
+    return () => { clearTimeout(id); document.removeEventListener('mousedown', onDoc); };
+  }, [open]);
+
+  const save = () => {
+    let v = (val || '').trim();
+    // Auto-prefix with https:// if user typed bare domain
+    if (v && !/^https?:\/\//i.test(v) && !v.startsWith('mailto:')) v = 'https://' + v;
+    onSave(v);
+    setOpen(false);
+  };
+
+  const hasLink = !!value;
+  return (
+    <div className="link-btn-wrap" ref={wrapRef}>
+      <button
+        className={'link-btn' + (hasLink ? ' has-link' : '')}
+        title={hasLink ? 'קישור דיווח · לחץ לעריכה' : 'הוסף קישור דיווח'}
+        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}>
+        <Icons.link/>
+      </button>
+      {open && (
+        <div className="link-popover">
+          <input type="url" placeholder="https://..." value={val} autoFocus
+            onChange={e => setVal(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') save();
+              else if (e.key === 'Escape') setOpen(false);
+            }}/>
+          <div className="link-popover-foot">
+            {hasLink && (
+              <a href={value} target="_blank" rel="noopener noreferrer"
+                 className="link-popover-open">פתח ↗</a>
+            )}
+            <button className="link-popover-save" onClick={save}>שמור</button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
