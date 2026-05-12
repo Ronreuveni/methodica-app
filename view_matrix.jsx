@@ -121,9 +121,12 @@ function formatDayHeader(date) {
   };
 }
 
+const HEBREW_MONTH_NAMES = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
 function MatrixView({ navigate, assignments, setAssignments }) {
   const [range, setRange] = React.useState('week');
   const [weekOffset, setWeekOffset] = React.useState(0);
+  const [monthOffset, setMonthOffset] = React.useState(0);
   const [projectModal, setProjectModal] = React.useState(null);
 
   // dragItem is state used ONLY for visual feedback (dim dragged card, highlight sidebar).
@@ -135,18 +138,46 @@ function MatrixView({ navigate, assignments, setAssignments }) {
   const [editingCell, setEditingCell] = React.useState(null);
   const [editText, setEditText] = React.useState('');
 
-  const baseStart = new Date(WEEK_START);
-  baseStart.setDate(baseStart.getDate() + weekOffset * 7);
-  const numDays = range === 'week' ? 5 : 10;
-  const dateList = Array.from({ length: numDays }, (_, i) => {
-    const d = new Date(baseStart);
-    d.setDate(baseStart.getDate() + i);
-    return d.toISOString().slice(0,10);
-  });
+  const isMonth = range === 'month';
+  let dateList;
+  let _monthLabel = '';
+  if (isMonth) {
+    // All working days (Sun–Thu) in the target month.
+    const baseMonth = new Date(WEEK_START.getFullYear(), WEEK_START.getMonth() + monthOffset, 1);
+    const year = baseMonth.getFullYear();
+    const mon  = baseMonth.getMonth();
+    const lastDay = new Date(year, mon + 1, 0).getDate();
+    dateList = [];
+    for (let d = 1; d <= lastDay; d++) {
+      const dt = new Date(year, mon, d);
+      const wd = dt.getDay();
+      if (wd >= 0 && wd <= 4) dateList.push(dt.toISOString().slice(0,10));
+    }
+    _monthLabel = HEBREW_MONTH_NAMES[mon] + ' ' + year;
+  } else {
+    const baseStart = new Date(WEEK_START);
+    baseStart.setDate(baseStart.getDate() + weekOffset * 7);
+    const numDays = range === 'week' ? 5 : 10;
+    dateList = Array.from({ length: numDays }, (_, i) => {
+      const d = new Date(baseStart);
+      d.setDate(baseStart.getDate() + i);
+      return d.toISOString().slice(0,10);
+    });
+  }
 
+  const numDays = dateList.length;
   const rangeStart = new Date(dateList[0]);
   const rangeEnd   = new Date(dateList[dateList.length-1]);
-  const rangeLabel = `${rangeStart.getDate()}.${rangeStart.getMonth()+1} – ${rangeEnd.getDate()}.${rangeEnd.getMonth()+1}.${rangeEnd.getFullYear()}`;
+  const rangeLabel = isMonth
+    ? _monthLabel
+    : `${rangeStart.getDate()}.${rangeStart.getMonth()+1} – ${rangeEnd.getDate()}.${rangeEnd.getMonth()+1}.${rangeEnd.getFullYear()}`;
+
+  // Active offset depends on mode — keeps week / month navigation independent.
+  const curOffset = isMonth ? monthOffset : weekOffset;
+  const setCurOffset = (val) => {
+    const next = typeof val === 'function' ? val(curOffset) : val;
+    if (isMonth) setMonthOffset(next); else setWeekOffset(next);
+  };
 
   // All assignments for a producer+date (multiple allowed)
   const getCellAssignments = (producerId, date) =>
@@ -245,17 +276,17 @@ function MatrixView({ navigate, assignments, setAssignments }) {
     <>
       <PageHead
         title="לו״ז מפיקים"
-        sub={range === 'week' ? 'מבט שבועי · מפיק.ה × ימים' : 'מבט שבועיים · מפיק.ה × ימים'}
+        sub={range === 'week' ? 'מבט שבועי · מפיק.ה × ימים' : range === 'fortnight' ? 'מבט שבועיים · מפיק.ה × ימים' : 'מבט חודשי · מפיק.ה × ימי עבודה'}
         actions={<>
-          <button className="btn btn-ghost" onClick={() => setWeekOffset(0)} disabled={weekOffset===0}>
-            חזרה לשבוע נוכחי
+          <button className="btn btn-ghost" onClick={() => setCurOffset(0)} disabled={curOffset===0}>
+            {isMonth ? 'חזרה לחודש נוכחי' : 'חזרה לשבוע נוכחי'}
           </button>
           <div className="nav-week">
-            <button className="nav-arrow" onClick={() => setWeekOffset(w => w - 1)} title="שבוע קודם">
+            <button className="nav-arrow" onClick={() => setCurOffset(w => w - 1)} title={isMonth ? 'חודש קודם' : 'שבוע קודם'}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><polyline points="9 6 15 12 9 18"/></svg>
             </button>
             <span className="nav-week-label">{rangeLabel}</span>
-            <button className="nav-arrow" onClick={() => setWeekOffset(w => w + 1)} title="שבוע הבא">
+            <button className="nav-arrow" onClick={() => setCurOffset(w => w + 1)} title={isMonth ? 'חודש הבא' : 'שבוע הבא'}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><polyline points="15 6 9 12 15 18"/></svg>
             </button>
           </div>
@@ -267,6 +298,7 @@ function MatrixView({ navigate, assignments, setAssignments }) {
         <div className="seg-toggle">
           <button className={range==='week'?'active':''} onClick={()=>setRange('week')}>שבוע</button>
           <button className={range==='fortnight'?'active':''} onClick={()=>setRange('fortnight')}>שבועיים</button>
+          <button className={range==='month'?'active':''} onClick={()=>setRange('month')}>חודש</button>
         </div>
         <span className="filter-sep"/>
         <div className="legend">
@@ -294,9 +326,10 @@ function MatrixView({ navigate, assignments, setAssignments }) {
                   const isToday   = dt === TODAY_MX.toISOString().slice(0,10);
                   const isHoliday = HOLIDAYS[dt];
                   const dayInfo   = formatDayHeader(dt);
+                  const isSunday  = isMonth && i > 0 && new Date(dt).getDay() === 0;
                   return (
-                    <th key={i} className={'day-col ' + (isToday?'today':'') + (isHoliday?' holiday':'')}>
-                      <div className="day-name">{dayInfo.name}</div>
+                    <th key={i} className={'day-col ' + (isToday?'today ':'') + (isHoliday?'holiday ':'') + (isSunday?'week-start':'')}>
+                      <div className="day-name">{isMonth ? dayInfo.name.charAt(0) : dayInfo.name}</div>
                       <div className="day-date">{dayInfo.date}</div>
                       {isHoliday && <div className="day-holiday">{isHoliday.label}</div>}
                     </th>
@@ -307,7 +340,7 @@ function MatrixView({ navigate, assignments, setAssignments }) {
             <tbody>
               {PRODUCERS.map(prod => {
                 const total    = producerTotals[prod.id];
-                const targetHrs = numDays === 5 ? 45 : 90;
+                const targetHrs = range === 'week' ? 45 : range === 'fortnight' ? 90 : numDays * 9;
                 const pct      = total / targetHrs;
                 return (
                   <tr key={prod.id}>
@@ -324,15 +357,16 @@ function MatrixView({ navigate, assignments, setAssignments }) {
                       </div>
                       <CapacityBar value={pct}/>
                     </td>
-                    {dateList.map(dt => {
+                    {dateList.map((dt, di) => {
                       const cellAssignments = getCellAssignments(prod.id, dt);
                       const isHoliday  = HOLIDAYS[dt];
                       const isDragOver = dragOver && dragOver.producer === prod.id && dragOver.date === dt;
                       const isEditing  = editingCell && editingCell.producer === prod.id && editingCell.date === dt;
+                      const isSunday   = isMonth && di > 0 && new Date(dt).getDay() === 0;
 
                       return (
                         <td key={dt}
-                          className={'cell ' + (dt===TODAY_MX.toISOString().slice(0,10)?'today ':'') + (isDragOver?'drag-over ':'') + (isHoliday?'holiday-cell ':'')}
+                          className={'cell ' + (dt===TODAY_MX.toISOString().slice(0,10)?'today ':'') + (isDragOver?'drag-over ':'') + (isHoliday?'holiday-cell ':'') + (isSunday?'week-start':'')}
                           onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOver({producer:prod.id, date:dt}); }}
                           onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null); }}
                           onDrop={e => { e.preventDefault(); onDropOnCell(prod.id, dt); }}>

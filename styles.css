@@ -274,6 +274,19 @@ input, select { font-family: inherit; }
 .matrix-fortnight .day-col { min-width: 96px; width: 9.5%; }
 .matrix-fortnight .prod-col { min-width: 140px; width: 14%; }
 
+/* Month mode — many narrow working-day columns, horizontal scroll inside .matrix-card */
+.matrix-month { min-width: 1280px; }
+.matrix-month .day-col, .matrix-month thead th:not(.prod-col) { min-width: 52px; width: 52px; padding: 6px 4px; }
+.matrix-month .prod-col { min-width: 130px; width: 130px; }
+.matrix-month .day-name { font-size: 10px; font-weight: 700; }
+.matrix-month .day-date { font-size: 11px; font-weight: 700; }
+.matrix-month .cell { padding: 4px; min-height: 64px; }
+.matrix-month .cell-entry { padding: 3px 5px; font-size: 10px; }
+.matrix-month .cell-entry-client { font-size: 9px; margin-top: 1px; }
+.matrix-month .cell.vacation, .matrix-month .cell.free { padding: 4px; font-size: 10px; }
+/* Visual week boundary — thicker border on each Sunday (right border in RTL = start-of-week) */
+.matrix-month td.week-start, .matrix-month th.week-start { border-inline-start: 2px solid var(--line-strong); }
+
 .matrix .day-col.today { background: #FFF8EC; box-shadow: inset 0 -3px 0 var(--brand-orange); }
 .matrix .day-col.holiday { background: #FCE9E0; }
 .matrix .day-name { font-weight: 800; font-size: 13px; }
