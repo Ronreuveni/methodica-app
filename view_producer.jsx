@@ -88,6 +88,14 @@ function ProducerView({ producerId, navigate, producers, setProducers, projects,
     try { localStorage.setItem('statusOverrides', JSON.stringify(next)); } catch {}
   };
 
+  // Patch a project field via the lifted projects state — syncs across board / producer views.
+  const updateProj = (pid, patch) => {
+    if (!setProjects) return;
+    setProjects(prev => prev.map(p => p.id === pid ? { ...p, ...patch } : p));
+  };
+  // Capitalised local alias for JSX use (view_board.jsx exposes it via window).
+  const LinkButton = window.LinkPopoverButton;
+
   const startEdit = () => {
     setEditName(prod.name);
     setEditColor(prod.color);
@@ -430,6 +438,7 @@ function ProducerView({ producerId, navigate, producers, setProducers, projects,
                 <th>לקוח</th>
                 <th>שעות</th>
                 <th>סטטוס</th>
+                <th>קישורים</th>
                 <th>הערות</th>
               </tr>
             </thead>
@@ -456,6 +465,18 @@ function ProducerView({ producerId, navigate, producers, setProducers, projects,
                           <option key={k} value={k}>{sv.label}</option>
                         )}
                       </select>
+                    </td>
+                    <td>
+                      <div className="cell-actions" style={{justifyContent:'flex-start'}}>
+                        {LinkButton ? (
+                          <>
+                            <LinkButton value={p.reportLink} icon="🔗" title="קישור דיווח"
+                              onSave={(v) => updateProj(p.id, { reportLink: v })}/>
+                            <LinkButton value={p.folderLink} icon="📁" title="תקיית פרויקט"
+                              onSave={(v) => updateProj(p.id, { folderLink: v })}/>
+                          </>
+                        ) : <span style={{fontSize:11, color:'var(--ink-400)'}}>—</span>}
+                      </div>
                     </td>
                     <td className="proj-note-cell">
                       {isEditingNote ? (

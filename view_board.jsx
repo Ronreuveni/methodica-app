@@ -569,8 +569,10 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
       {/* Row actions */}
       <td>
         <div className="cell-actions">
-          <ReportLinkButton value={p.reportLink}
+          <LinkPopoverButton value={p.reportLink} icon="🔗" title="קישור דיווח"
             onSave={(v) => updateProject(p.id, { reportLink: v })}/>
+          <LinkPopoverButton value={p.folderLink} icon="📁" title="תקיית פרויקט"
+            onSave={(v) => updateProject(p.id, { folderLink: v })}/>
           <button className="row-del" title="מחק" onClick={() => {
             if (confirm('למחוק את "' + (p.name||'הפרויקט') + '"?')) removeProject(p.id);
           }}>×</button>
@@ -580,8 +582,9 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
   );
 }
 
-// Per-row report-link button: small link icon → popover with editable URL + Open action.
-function ReportLinkButton({ value, onSave }) {
+// Per-row link button: small icon → popover with editable URL + Open action.
+// Generalized — reused for both report link and project folder link (and any future link type).
+function LinkPopoverButton({ value, onSave, icon, title }) {
   const [open, setOpen] = React.useState(false);
   const [val, setVal] = React.useState(value || '');
   const wrapRef = React.useRef(null);
@@ -597,23 +600,25 @@ function ReportLinkButton({ value, onSave }) {
 
   const save = () => {
     let v = (val || '').trim();
-    // Auto-prefix with https:// if user typed bare domain
     if (v && !/^https?:\/\//i.test(v) && !v.startsWith('mailto:')) v = 'https://' + v;
     onSave(v);
     setOpen(false);
   };
 
   const hasLink = !!value;
+  const label = title || 'קישור';
+  const iconNode = typeof icon === 'string' ? <span style={{fontSize:12}}>{icon}</span> : (icon || <Icons.link/>);
   return (
     <div className="link-btn-wrap" ref={wrapRef}>
       <button
         className={'link-btn' + (hasLink ? ' has-link' : '')}
-        title={hasLink ? 'קישור דיווח · לחץ לעריכה' : 'הוסף קישור דיווח'}
+        title={hasLink ? label + ' · לחץ לעריכה' : 'הוסף ' + label}
         onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}>
-        <Icons.link/>
+        {iconNode}
       </button>
       {open && (
         <div className="link-popover">
+          <div className="link-popover-title">{label}</div>
           <input type="url" placeholder="https://..." value={val} autoFocus
             onChange={e => setVal(e.target.value)}
             onKeyDown={e => {
@@ -632,6 +637,8 @@ function ReportLinkButton({ value, onSave }) {
     </div>
   );
 }
+// Expose for cross-file usage (producer view's active-projects table)
+window.LinkPopoverButton = LinkPopoverButton;
 
 // Display label for date or range. kind='due' colors by urgency; kind='start' is neutral.
 function DateRangeLabel({ value, kind }) {

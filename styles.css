@@ -1336,6 +1336,7 @@ select.cell-input { padding: 5px 8px; }
   box-shadow: var(--shadow-md); z-index: 9999;
   padding: 8px; min-width: 260px;
 }
+.link-popover-title { font-size: 11px; font-weight: 700; color: var(--ink-700); margin-bottom: 6px; }
 .link-popover input {
   width: 100%; padding: 6px 10px; font-size: 12px;
   border: 1px solid var(--line); border-radius: 4px;
