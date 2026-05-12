@@ -45,9 +45,25 @@ function dueClass(days) {
 
 function BoardView({ navigate }) {
   // ────────── State ──────────
-  const [projects, setProjects] = React.useState(() =>
-    PROJECTS.map(p => ({ ...p, urgency: p.urgency || 'normal', archived: false }))
-  );
+  // Projects — initial order is restored from localStorage so user's drag-reorder persists.
+  const [projects, setProjects] = React.useState(() => {
+    const base = PROJECTS.map(p => ({ ...p, urgency: p.urgency || 'normal', archived: false }));
+    try {
+      const saved = JSON.parse(localStorage.getItem('board-order') || 'null');
+      if (Array.isArray(saved) && saved.length) {
+        const byId = new Map(base.map(p => [p.id, p]));
+        const ordered = saved.map(id => byId.get(id)).filter(Boolean);
+        const seen = new Set(saved);
+        const extras = base.filter(p => !seen.has(p.id));
+        return [...ordered, ...extras];
+      }
+    } catch {}
+    return base;
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem('board-order', JSON.stringify(projects.map(p => p.id))); } catch {}
+  }, [projects]);
+
   // Auto-archive done projects (toggle)
   const [autoArchive, setAutoArchive] = React.useState(true);
 
@@ -57,6 +73,8 @@ function BoardView({ navigate }) {
   const [mode, setMode] = React.useState('table');
   // Kanban grouping: 'status' | 'date'
   const [kanbanBy, setKanbanBy] = React.useState('status');
+  // Sort mode for active tab: 'manual' (user's drag order) | 'status'
+  const [sortMode, setSortMode] = React.useState('manual');
 
   // Filters
   const [status, setStatus] = React.useState('all');
@@ -73,6 +91,25 @@ function BoardView({ navigate }) {
   };
   const removeProject = (id) => {
     setProjects(prev => prev.filter(p => p.id !== id));
+  };
+  // Reorder: move src to be immediately before tgt in the full projects list.
+  const moveProject = React.useCallback((srcId, tgtId) => {
+    if (!srcId || !tgtId || srcId === tgtId) return;
+    setProjects(prev => {
+      const srcIdx = prev.findIndex(p => p.id === srcId);
+      if (srcIdx < 0) return prev;
+      const list = [...prev];
+      const [item] = list.splice(srcIdx, 1);
+      const tgtIdx = list.findIndex(p => p.id === tgtId);
+      if (tgtIdx < 0) return prev;
+      list.splice(tgtIdx, 0, item);
+      return list;
+    });
+  }, []);
+  // Reset top-bar filters + sort back to manual (drag) order.
+  const resetView = () => {
+    setStatus('all'); setClient('all'); setProducer('all'); setQ('');
+    setSortMode('manual');
   };
   const addNewProject = () => {
     const id = 'new-' + Date.now();
@@ -106,7 +143,12 @@ function BoardView({ navigate }) {
       if (c !== 0) return c;
       return (a.name || '').localeCompare(b.name || '', 'he');
     });
+  } else if (sortMode === 'status') {
+    // Sort active rows grouped by status (canonical order from STATUSES)
+    const order = Object.keys(STATUSES);
+    visible.sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status));
   }
+  // sortMode === 'manual' → keep projects' array order (user's drag-and-drop order)
 
   // KPIs (always from full active set)
   const counts = {
@@ -206,6 +248,19 @@ function BoardView({ navigate }) {
             </div>
           </>
         )}
+        {mode==='table' && tab==='active' && (
+          <>
+            <span className="filter-sep"/>
+            <span className="filters-label">מיון:</span>
+            <div className="seg-toggle">
+              <button className={sortMode==='manual'?'active':''} onClick={()=>setSortMode('manual')} title="סדר ידני — גרור שורות לסידור">ידני</button>
+              <button className={sortMode==='status'?'active':''} onClick={()=>setSortMode('status')} title="מיון מקובץ לפי סטטוס">לפי סטטוס</button>
+            </div>
+          </>
+        )}
+        {(status!=='all' || client!=='all' || producer!=='all' || q || sortMode!=='manual') && (
+          <button className="chip" onClick={resetView} title="נקה פילטרים וחזור לסדר ידני">↺ ברירת מחדל</button>
+        )}
         <div className="search-box">
           <Icons.search/>
           <input placeholder="חיפוש פרויקט..." value={q} onChange={e=>setQ(e.target.value)}/>
@@ -219,7 +274,8 @@ function BoardView({ navigate }) {
           allRows={projects}
           editing={editing} setEditing={setEditing}
           updateProject={updateProject} removeProject={removeProject}
-          tab={tab}
+          moveProject={moveProject}
+          tab={tab} sortMode={sortMode}
         />
       ) : (
         <BoardKanban rows={visible} kanbanBy={kanbanBy} updateProject={updateProject}/>
@@ -268,7 +324,9 @@ function ColFilter({ label, values, active, onChange }) {
   );
 }
 
-function BoardTable({ rows, editing, setEditing, updateProject, removeProject, tab, allRows }) {
+function BoardTable({ rows, editing, setEditing, updateProject, removeProject, moveProject, tab, sortMode, allRows }) {
+  // Drag-and-drop is only meaningful when rows are in manual order (no programmatic sort).
+  const canDrag = tab === 'active' && (sortMode === 'manual' || sortMode === undefined);
   const startEdit = (rowId, field) => setEditing({ rowId, field });
   const stopEdit = () => setEditing(null);
 
@@ -343,6 +401,7 @@ function BoardTable({ rows, editing, setEditing, updateProject, removeProject, t
             <BoardRow key={p.id} p={p}
               editing={editing} startEdit={startEdit} stopEdit={stopEdit}
               updateProject={updateProject} removeProject={removeProject}
+              moveProject={moveProject} canDrag={canDrag}
               suggest={suggest}/>
           ))}
         </tbody>
@@ -351,8 +410,9 @@ function BoardTable({ rows, editing, setEditing, updateProject, removeProject, t
   );
 }
 
-function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProject, suggest }) {
+function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProject, moveProject, canDrag, suggest }) {
   const sg = suggest || { names:[], clients:[], types:[], pms:[] };
+  const [dragOver, setDragOver] = React.useState(false);
   const isEditing = (field) => editing && editing.rowId === p.id && editing.field === field;
   const _dueRef = (() => {
     const v = p.due;
@@ -363,8 +423,21 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
   const _isOverdue = !!_dueRef && p.status !== 'done' && p.status !== 'frozen' &&
     (Math.ceil((new Date(_dueRef) - TODAY_BOARD) / (1000*60*60*24)) < 0);
 
+  const dndProps = canDrag ? {
+    draggable: true,
+    onDragStart: (e) => { e.dataTransfer.setData('text/plain', p.id); e.dataTransfer.effectAllowed = 'move'; },
+    onDragOver: (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (!dragOver) setDragOver(true); },
+    onDragLeave: () => setDragOver(false),
+    onDrop: (e) => {
+      e.preventDefault(); setDragOver(false);
+      const srcId = e.dataTransfer.getData('text/plain');
+      if (srcId && srcId !== p.id && typeof moveProject === 'function') moveProject(srcId, p.id);
+    },
+  } : {};
+
   return (
-    <tr className={(p.urgency === 'hot' ? 'row-hot ' : '') + (_isOverdue ? 'row-overdue' : '')}>
+    <tr {...dndProps}
+        className={(canDrag ? 'row-draggable ' : '') + (p.urgency === 'hot' ? 'row-hot ' : '') + (_isOverdue ? 'row-overdue ' : '') + (dragOver ? 'row-drag-over' : '')}>
       {/* Urgency flag */}
       <td className="cell-flag">
         <button
@@ -610,10 +683,13 @@ function DueLabel({ date }) {
 // ComboInput — free-text input that also shows a dropdown of existing values.
 // Initial open: shows ALL options (so user can pick without clearing the field).
 // As the user types, options are filtered by substring match.
+// Dropdown uses position: fixed so it escapes the parent .card's overflow clipping.
 function ComboInput({ defaultValue, options, onCommit, onCancel, className }) {
   const [val, setVal] = React.useState(defaultValue || '');
   const [hasTyped, setHasTyped] = React.useState(false);
+  const [pos, setPos] = React.useState(null);
   const wrapRef = React.useRef(null);
+  const inputRef = React.useRef(null);
   const committedRef = React.useRef(false);
 
   const commit = (v) => {
@@ -622,9 +698,28 @@ function ComboInput({ defaultValue, options, onCommit, onCancel, className }) {
     onCommit(v);
   };
 
+  // Recompute dropdown position relative to viewport (escapes ancestor overflow).
+  React.useLayoutEffect(() => {
+    const update = () => {
+      if (!inputRef.current) return;
+      const r = inputRef.current.getBoundingClientRect();
+      setPos({ left: r.left, top: r.bottom + 4, width: r.width });
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
+
   React.useEffect(() => {
     const onDoc = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) commit(val);
+      if (wrapRef.current && wrapRef.current.contains(e.target)) return;
+      // Clicks inside our dropdown (rendered via position:fixed outside wrap) also count.
+      if (e.target.closest && e.target.closest('.combo-dropdown')) return;
+      commit(val);
     };
     const id = setTimeout(() => document.addEventListener('mousedown', onDoc), 0);
     return () => { clearTimeout(id); document.removeEventListener('mousedown', onDoc); };
@@ -637,15 +732,16 @@ function ComboInput({ defaultValue, options, onCommit, onCancel, className }) {
 
   return (
     <div className="combo-wrap" ref={wrapRef}>
-      <input autoFocus className={className} value={val}
+      <input ref={inputRef} autoFocus className={className} value={val}
         onFocus={e => e.target.select()}
         onChange={e => { setVal(e.target.value); setHasTyped(true); }}
         onKeyDown={e => {
           if (e.key === 'Enter') commit(val);
           else if (e.key === 'Escape') { committedRef.current = true; onCancel(); }
         }}/>
-      {filtered.length > 0 && (
-        <div className="combo-dropdown">
+      {filtered.length > 0 && pos && (
+        <div className="combo-dropdown"
+             style={{ left: pos.left + 'px', top: pos.top + 'px', minWidth: pos.width + 'px' }}>
           {filtered.map(o => (
             <div key={o}
               className={'combo-option' + (o === defaultValue ? ' is-current' : '')}

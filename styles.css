@@ -1299,10 +1299,11 @@ select.cell-input { padding: 5px 8px; }
 .combo-wrap { position: relative; width: 100%; }
 .combo-wrap > input { width: 100%; }
 .combo-dropdown {
-  position: absolute; top: calc(100% + 4px); inset-inline-start: 0;
+  /* Position: fixed (with inline left/top) so the dropdown escapes ancestor overflow clipping. */
+  position: fixed;
   background: #fff; border: 1px solid var(--line); border-radius: var(--r-md);
-  box-shadow: var(--shadow-md); z-index: 200;
-  min-width: 100%; max-height: 240px; overflow-y: auto; padding: 4px 0;
+  box-shadow: var(--shadow-md); z-index: 9999;
+  max-height: 240px; overflow-y: auto; padding: 4px 0;
 }
 .combo-option {
   padding: 7px 12px; cursor: pointer; font-size: 12px; color: var(--ink-700);
@@ -1310,6 +1311,11 @@ select.cell-input { padding: 5px 8px; }
 }
 .combo-option:hover { background: var(--bg-muted); }
 .combo-option.is-current { background: #FFF1DA; color: var(--ink-900); font-weight: 600; }
+
+/* ── Drag-and-drop reordering for board table rows ── */
+.board-table tbody tr.row-draggable td:first-child { cursor: grab; }
+.board-table tbody tr.row-draggable:active td:first-child { cursor: grabbing; }
+.board-table tbody tr.row-drag-over td { box-shadow: inset 0 2px 0 var(--brand-orange); }
 
 /* ── Producer page: status select (feature 6) ── */
 .status-select {
