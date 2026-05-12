@@ -317,6 +317,14 @@ function MatrixView({ navigate, assignments, setAssignments }) {
           onDropOnSidebar={onDropOnSidebar}
         />
 
+        {isMonth ? (
+          <MonthCalendar
+            year={new Date(WEEK_START.getFullYear(), WEEK_START.getMonth() + monthOffset, 1).getFullYear()}
+            month={new Date(WEEK_START.getFullYear(), WEEK_START.getMonth() + monthOffset, 1).getMonth()}
+            assignments={assignments}
+            setAssignments={setAssignments}
+            dragItem={dragItem}/>
+        ) : (
         <div className="matrix-card">
           <table className={'matrix matrix-' + range}>
             <thead>
@@ -392,6 +400,7 @@ function MatrixView({ navigate, assignments, setAssignments }) {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {projectModal && (
@@ -747,6 +756,305 @@ function ProjectModal({ projectId, assignments, onClose, onOpenProducer }) {
               <div className="modal-notes">{proj.notes}</div>
             </>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════
+// MONTH CALENDAR (calendar grid, replaces the wide matrix in month mode)
+// ═════════════════════════════════════════════════════════════
+
+const AVAIL_STATUS = {
+  vacation: { label: 'חופשה',  bg: '#D6ECDA', fg: '#2F6B3D', dot: '#5FA56F' },
+  sick:     { label: 'מחלה',   bg: '#F7DADA', fg: '#8E2F2F', dot: '#D06868' },
+  reserve:  { label: 'מילואים', bg: '#E4DDF1', fg: '#574485', dot: '#9985C2' },
+  study:    { label: 'לימודים', bg: '#F0EAE0', fg: '#7A6238', dot: '#B89A6B' },
+  free:     { label: 'פנוי',    bg: '#F4F4F5', fg: '#9CA3AF', dot: '#D1D5DB' },
+};
+
+function classifyEntry(a, projectsById) {
+  if (!a) return { type: 'free' };
+  if (a.project && projectsById[a.project]) {
+    return { type: 'project', projectId: a.project, project: projectsById[a.project] };
+  }
+  const lab = (a.label || '').trim();
+  if (/חופש|לטביה|vacation/i.test(lab)) return { type: 'vacation', label: lab };
+  if (/מחלה|sick/i.test(lab))           return { type: 'sick',     label: lab };
+  if (/מילואים|reserve/i.test(lab))     return { type: 'reserve',  label: lab };
+  if (/לימוד|study/i.test(lab))         return { type: 'study',    label: lab };
+  if (/פנוי|free/i.test(lab) || !lab)   return { type: 'free' };
+  return { type: 'note', label: lab };
+}
+
+function MonthCalendar({ year, month, assignments, setAssignments, dragItem }) {
+  const [editingDate, setEditingDate] = React.useState(null);
+  const [seedProjectId, setSeedProjectId] = React.useState(null);
+  const projectsById = React.useMemo(
+    () => Object.fromEntries((window.PROJECTS || PROJECTS || []).map(p => [p.id, p])),
+    [assignments]
+  );
+
+  // 6×7 calendar grid starting from the Sunday before/on the 1st of the month.
+  const grid = React.useMemo(() => {
+    const first = new Date(year, month, 1);
+    const startOffset = first.getDay();
+    const out = [];
+    for (let w = 0; w < 6; w++) {
+      const week = [];
+      for (let d = 0; d < 7; d++) {
+        const date = new Date(year, month, 1 - startOffset + w * 7 + d);
+        week.push(date);
+      }
+      out.push(week);
+    }
+    return out;
+  }, [year, month]);
+
+  // Index assignments by producer × date for O(1) cell lookups.
+  const lookup = React.useMemo(() => {
+    const out = {};
+    assignments.forEach(a => {
+      if (!out[a.producer]) out[a.producer] = {};
+      out[a.producer][a.date] = a;
+    });
+    return out;
+  }, [assignments]);
+
+  const handleOpenDay = (date) => setEditingDate(date);
+  const handleDropProject = (date, projectId) => {
+    setSeedProjectId(projectId);
+    setEditingDate(date);
+  };
+
+  const draggingProjectId = dragItem?.type === 'project' ? dragItem.projectId : null;
+
+  return (
+    <>
+      <div className="mcal-card">
+        <div className="mcal-dow">
+          {['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'].map((nm, i) => (
+            <div key={i} className={'mcal-dow-cell ' + ((i === 5 || i === 6) ? 'is-weekend' : '')}>{nm}</div>
+          ))}
+        </div>
+        <div className="mcal-grid">
+          {grid.map((week, wi) => (
+            <div key={wi} className="mcal-week">
+              {week.map((date, di) => (
+                <MonthDayCell key={di}
+                  date={date} viewYear={year} viewMonth={month}
+                  lookup={lookup} projectsById={projectsById}
+                  onOpen={handleOpenDay}
+                  onDropProject={handleDropProject}
+                  draggingProjectId={draggingProjectId}/>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      {editingDate && (
+        <DayEditor
+          date={editingDate}
+          assignments={assignments} setAssignments={setAssignments}
+          projectsById={projectsById}
+          seedProjectId={seedProjectId}
+          onClose={() => { setEditingDate(null); setSeedProjectId(null); }}/>
+      )}
+    </>
+  );
+}
+
+function MonthDayCell({ date, viewYear, viewMonth, lookup, projectsById, onOpen, onDropProject, draggingProjectId }) {
+  const dow = date.getDay();
+  const iso = date.toISOString().slice(0, 10);
+  const inMonth = date.getMonth() === viewMonth && date.getFullYear() === viewYear;
+  const isWeekend = dow === 5 || dow === 6;
+  const isToday = iso === TODAY_MX.toISOString().slice(0,10);
+  const holiday = HOLIDAYS[iso];
+  const [dragOver, setDragOver] = React.useState(false);
+
+  let cP=0, cV=0, cS=0, cR=0, cSt=0;
+  PRODUCERS.forEach(p => {
+    const a = lookup[p.id]?.[iso];
+    const cls = classifyEntry(a, projectsById);
+    if (cls.type === 'project')  cP++;
+    else if (cls.type === 'vacation') cV++;
+    else if (cls.type === 'sick')     cS++;
+    else if (cls.type === 'reserve')  cR++;
+    else if (cls.type === 'study')    cSt++;
+  });
+
+  const cls = ['mcal-day'];
+  if (!inMonth) cls.push('is-out');
+  if (isWeekend) cls.push('is-weekend');
+  if (isToday)   cls.push('is-today');
+  if (dragOver)  cls.push('is-dragover');
+
+  return (
+    <div className={cls.join(' ')}
+      onClick={() => onOpen(date)}
+      onDragOver={e => { if (draggingProjectId) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setDragOver(true); } }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={e => { e.preventDefault(); setDragOver(false); if (draggingProjectId) onDropProject(date, draggingProjectId); }}>
+      <div className="mcal-day-head">
+        <span className="mcal-day-num">{date.getDate()}</span>
+        {holiday && <span className="mcal-day-holiday">{holiday.label}</span>}
+      </div>
+      {!isWeekend ? (
+        <>
+          <div className="mcal-chips">
+            {PRODUCERS.map(p => {
+              const a = lookup[p.id]?.[iso];
+              const c = classifyEntry(a, projectsById);
+              let bg = AVAIL_STATUS.free.bg, ring = 'transparent';
+              let title = p.name + ' · פנוי';
+              if (c.type === 'project') {
+                const s = STATUSES[c.project.status];
+                bg = s?.bg || bg; ring = s?.ring || ring;
+                title = p.name + ' · ' + c.project.name + (s ? ' · ' + s.label : '');
+              } else if (AVAIL_STATUS[c.type]) {
+                const av = AVAIL_STATUS[c.type];
+                bg = av.bg; ring = av.dot;
+                title = p.name + ' · ' + av.label;
+              }
+              return (
+                <div key={p.id} className="mcal-chip" style={{background: bg, boxShadow: `inset 0 0 0 1px ${ring}`}} title={title}>
+                  <span className="mcal-chip-dot" style={{background: p.color}}/>
+                  <span className="mcal-chip-init">{p.name.charAt(0)}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mcal-foot">
+            {cP > 0 && <span className="mcal-cnt mcal-cnt-p">{cP} בהפקה</span>}
+            {cV > 0 && <span className="mcal-cnt mcal-cnt-v">{cV} חופ׳</span>}
+            {cS > 0 && <span className="mcal-cnt mcal-cnt-s">{cS} מחלה</span>}
+            {cR > 0 && <span className="mcal-cnt mcal-cnt-r">{cR} מיל׳</span>}
+            {cSt > 0 && <span className="mcal-cnt mcal-cnt-st">{cSt} לימוד</span>}
+          </div>
+        </>
+      ) : (
+        <div className="mcal-rest">{dow === 5 ? 'שישי' : 'שבת'}</div>
+      )}
+    </div>
+  );
+}
+
+function DayEditor({ date, assignments, setAssignments, projectsById, seedProjectId, onClose }) {
+  const iso = date.toISOString().slice(0, 10);
+  const DAYS_FULL   = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+  const MONTHS_FULL = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  const dayLabel = 'יום ' + DAYS_FULL[date.getDay()] + ', ' + date.getDate() + ' ב' + MONTHS_FULL[date.getMonth()] + ' ' + date.getFullYear();
+  const holiday = HOLIDAYS[iso];
+
+  const setProducerEntry = (producerId, change) => {
+    setAssignments(prev => {
+      const next = prev.filter(a => !(a.producer === producerId && a.date === iso));
+      if (change === null) return next;
+      next.push({
+        id: 'a-de-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5),
+        producer: producerId, date: iso, ...change,
+      });
+      return next;
+    });
+  };
+  const bulkAll = (change) => {
+    setAssignments(prev => {
+      let next = prev.filter(a => a.date !== iso);
+      if (change === null) return next;
+      PRODUCERS.forEach((p, i) => {
+        next.push({
+          id: 'a-de-' + Date.now() + '-' + i,
+          producer: p.id, date: iso, ...change,
+        });
+      });
+      return next;
+    });
+  };
+
+  const projectList = (window.PROJECTS || PROJECTS || []).filter(p => p.status !== 'done' && p.status !== 'frozen');
+
+  const selectValueFor = (a) => {
+    if (!a) return 'free';
+    if (a.project) return 'p:' + a.project;
+    const lab = (a.label || '').trim();
+    if (/חופש|vacation/i.test(lab))   return 'vacation';
+    if (/מחלה|sick/i.test(lab))       return 'sick';
+    if (/מילואים|reserve/i.test(lab)) return 'reserve';
+    if (/לימוד|study/i.test(lab))     return 'study';
+    return 'free';
+  };
+
+  return (
+    <div className="mcal-scrim" onClick={onClose}>
+      <div className="mcal-modal" onClick={e => e.stopPropagation()}>
+        <div className="mcal-modal-head">
+          <div>
+            <div className="mcal-modal-title">{dayLabel}</div>
+            {holiday && <div className="mcal-modal-sub">{holiday.label}</div>}
+            {seedProjectId && projectsById[seedProjectId] && (
+              <div className="mcal-modal-seed">פרויקט בגרירה: <strong>{projectsById[seedProjectId].name}</strong> — בחר.י למי לשבץ אותו</div>
+            )}
+          </div>
+          <button className="mcal-modal-x" onClick={onClose}>×</button>
+        </div>
+        <div className="mcal-modal-body">
+          {PRODUCERS.map(p => {
+            const a = assignments.find(x => x.producer === p.id && x.date === iso);
+            const val = selectValueFor(a);
+            const c = classifyEntry(a, projectsById);
+            let pillBg = AVAIL_STATUS.free.bg, pillFg = AVAIL_STATUS.free.fg, pillText = AVAIL_STATUS.free.label;
+            if (c.type === 'project') {
+              const s = STATUSES[c.project.status];
+              pillBg = s?.bg || pillBg; pillFg = s?.color || pillFg; pillText = c.project.name;
+            } else if (AVAIL_STATUS[c.type]) {
+              pillBg = AVAIL_STATUS[c.type].bg;
+              pillFg = AVAIL_STATUS[c.type].fg;
+              pillText = AVAIL_STATUS[c.type].label;
+            }
+            return (
+              <div key={p.id} className="mcal-de-row">
+                <div className="mcal-de-row-l">
+                  <span className="avatar sm" style={{background: p.color}}>{p.name.charAt(0)}</span>
+                  <span className="mcal-de-row-name">{p.name}</span>
+                </div>
+                <div className="mcal-de-pill" style={{background: pillBg, color: pillFg}}>{pillText}</div>
+                <select className="mcal-de-sel" value={val} onChange={e => {
+                  const v = e.target.value;
+                  if (v.startsWith('p:'))       setProducerEntry(p.id, { project: v.slice(2), hours: 7, label: null });
+                  else if (v === 'vacation')   setProducerEntry(p.id, { project: null, hours: 0, label: 'חופש' });
+                  else if (v === 'sick')       setProducerEntry(p.id, { project: null, hours: 0, label: 'מחלה' });
+                  else if (v === 'reserve')    setProducerEntry(p.id, { project: null, hours: 0, label: 'מילואים' });
+                  else if (v === 'study')      setProducerEntry(p.id, { project: null, hours: 0, label: 'לימודים' });
+                  else                         setProducerEntry(p.id, null);
+                }}>
+                  <optgroup label="פרויקטים">
+                    {projectList.map(pr => <option key={pr.id} value={'p:'+pr.id}>{pr.name}</option>)}
+                  </optgroup>
+                  <optgroup label="זמינות">
+                    <option value="free">פנוי</option>
+                    <option value="vacation">חופשה</option>
+                    <option value="sick">יום מחלה</option>
+                    <option value="reserve">מילואים</option>
+                    <option value="study">לימודים</option>
+                  </optgroup>
+                </select>
+              </div>
+            );
+          })}
+          <div className="mcal-de-bulk">
+            <span className="mcal-de-bulk-label">פעולה מהירה לכל הצוות:</span>
+            <button className="mcal-de-bulk-btn is-v" onClick={() => bulkAll({ project: null, hours: 0, label: 'חופש' })}>
+              סמן כיום חופשה לצוות
+            </button>
+            <button className="mcal-de-bulk-btn" onClick={() => bulkAll(null)}>
+              נקה יום
+            </button>
+          </div>
+        </div>
+        <div className="mcal-modal-foot">
+          <button className="btn btn-ghost" onClick={onClose}>סגור</button>
         </div>
       </div>
     </div>
