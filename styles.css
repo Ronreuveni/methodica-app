@@ -1571,3 +1571,61 @@ html .prod-load-dots .ld.hot { background: var(--danger); }
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .import-preset-clear:hover { background: rgba(0,0,0,.06); color: var(--danger); }
+
+/* ── Producer view: draggable day chips + day-add button/menu ── */
+.day-row { position: relative; transition: background .12s; }
+.day-row.is-drag-over { background: var(--brand-orange-soft, #FEF1E4); outline: 2px dashed var(--brand-orange); outline-offset: -2px; border-radius: var(--r-md); }
+.day-row-head { position: relative; }
+
+.day-add-btn {
+  position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px; border-radius: 4px;
+  background: transparent; border: 1px dashed var(--line-strong);
+  color: var(--ink-500); font-size: 13px; line-height: 1; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .12s, color .12s, border-color .12s; cursor: pointer;
+}
+.day-row:hover .day-add-btn { opacity: 1; }
+.day-add-btn:hover { color: var(--brand-orange); border-color: var(--brand-orange); border-style: solid; }
+
+.day-add-menu {
+  position: absolute; z-index: 50; top: 100%; inset-inline-end: 0;
+  background: #fff; border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-md); padding: 8px;
+  min-width: 200px; margin-top: 2px;
+}
+.day-add-options { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 6px; }
+.day-add-options button {
+  font-size: 11px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px;
+  background: var(--bg-muted); cursor: pointer; text-align: start; font-family: inherit; color: var(--ink-700);
+}
+.day-add-options button:hover { background: #FEF1E4; border-color: var(--brand-orange); color: var(--ink-900); }
+.day-add-custom { display: flex; gap: 4px; align-items: center; padding-top: 6px; border-top: 1px solid var(--line); }
+.day-add-custom input {
+  flex: 1; padding: 5px 8px; font-size: 11px; min-width: 0;
+  border: 1px solid var(--line); border-radius: 4px; outline: none; font-family: inherit;
+}
+.day-add-custom input:focus { border-color: var(--brand-orange); }
+.day-add-save {
+  padding: 5px 10px; font-size: 11px; font-weight: 600; border: none; border-radius: 4px;
+  background: var(--brand-orange); color: #fff; cursor: pointer; font-family: inherit;
+}
+.day-add-save:disabled { opacity: .4; cursor: not-allowed; }
+
+.day-chip { position: relative; cursor: pointer; }
+.day-chip[draggable="true"] { cursor: grab; }
+.day-chip[draggable="true"]:active { cursor: grabbing; }
+.day-chip.is-vacation, .day-chip.is-free { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.day-chip.is-note {
+  background: #F3F4F6; border-color: var(--line); border-inline-end-color: var(--ink-400);
+  color: var(--ink-700); font-size: 12px;
+  display: flex; justify-content: space-between; align-items: center; gap: 6px;
+}
+.chip-del {
+  width: 16px; height: 16px; border-radius: 3px;
+  background: transparent; color: var(--ink-400); font-size: 13px; line-height: 1;
+  border: none; cursor: pointer; opacity: 0; transition: opacity .12s, background .12s, color .12s;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.day-chip:hover .chip-del { opacity: 1; }
+.chip-del:hover { background: #FCE4E1; color: var(--danger); }

@@ -135,36 +135,51 @@ function ProducerView({ producerId, navigate, producers, setProducers, projects,
     };
   });
 
-  // Map producer schedule to absolute dates relative to today's week (rel=0)
-  // The mock SCHEDULE represents the current week (rel 0). For demo, we'll show entries for rel 0,
-  // and synthesize/leave-blank for other weeks (rel -1, +1, +2) using a deterministic projection.
-  // Strategy: distribute the producer's active projects across the surrounding weeks for a realistic preview.
-  const scheduleForCurrentWeek = SCHEDULE.filter(s => s.producer === producerId);
+  // Producer view reads schedule from the lifted `assignments` state — drag/edit here syncs
+  // with the matrix view (single source of truth). Days outside the dataset render empty;
+  // user can drop a project on them or add a vacation via the "+" button.
+  const _allAssignments = assignments || [];
   function entriesForDay(week, dayIdx) {
     const date = week.days[dayIdx];
-    // Holiday check
-    const holiday = HOLIDAYS.find(h => h.date === _isoDateP(date));
-    if (holiday) return [{ kind: 'holiday', label: holiday.name }];
-
-    if (week.rel === 0 && weekOffset === 0) {
-      const entry = scheduleForCurrentWeek.find(s => s.day === dayIdx);
-      if (!entry) return [];
-      if (!entry.project) return [{ kind: entry.label?.includes('חופש')?'vacation':'free', label: entry.label || 'פנוי' }];
-      const proj = _allProjects.find(p => p.id === entry.project);
-      if (!proj) return [];
-      return [{ kind: 'project', proj, hours: entry.hours }];
-    }
-    // Synthesize for other weeks: rotate active projects deterministically
-    const active = myProjects;
-    if (active.length === 0) return [];
-    // hash from date+producer
-    const seed = (date.getDate() + date.getMonth()*31 + producerId.length*7) % active.length;
-    const proj = active[seed];
-    // 1 in 6 days vacation
-    if (week.rel === -1 && dayIdx === 1 && producerId === 'vadim') return [{ kind: 'vacation', label: 'חופש — לטביה' }];
-    if (week.rel === 1 && dayIdx === 4 && producerId === 'sharon') return [{ kind: 'free', label: 'פנוי' }];
-    return [{ kind: 'project', proj, hours: 7 + (seed % 3) }];
+    const iso = _isoDateP(date);
+    const out = [];
+    const holiday = HOLIDAYS.find(h => h.date === iso);
+    if (holiday) out.push({ kind: 'holiday', label: holiday.name });
+    _allAssignments
+      .filter(a => a.producer === producerId && a.date === iso)
+      .forEach(a => {
+        if (a.project) {
+          const proj = _allProjects.find(p => p.id === a.project);
+          if (proj) out.push({ kind: 'project', proj, hours: a.hours, assignmentId: a.id });
+        } else if (a.label) {
+          let kind = 'note';
+          if (/חופש|לטביה|vacation/i.test(a.label)) kind = 'vacation';
+          else if (/פנוי|free/i.test(a.label)) kind = 'free';
+          out.push({ kind, label: a.label, assignmentId: a.id });
+        }
+      });
+    return out;
   }
+
+  // Edit handlers for the 4-week strip — all go through shared setAssignments so the matrix view stays in sync.
+  const moveAssignment = (assignmentId, newDate) => {
+    if (!setAssignments) return;
+    setAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, date: newDate } : a));
+  };
+  const removeAssignment = (assignmentId) => {
+    if (!setAssignments) return;
+    setAssignments(prev => prev.filter(a => a.id !== assignmentId));
+  };
+  const addDayEntry = (iso, label, hours = 0) => {
+    if (!setAssignments) return;
+    setAssignments(prev => [...prev, {
+      id: 'a-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+      producer: producerId, date: iso,
+      project: null, hours, label,
+    }]);
+  };
+  const [dragOverIso, setDragOverIso] = React.useState(null);
+  const [addMenuIso, setAddMenuIso] = React.useState(null);
 
   // Total hours across all 4 weeks for sub-line
   let totalHoursWindow = 0;
@@ -283,14 +298,32 @@ function ProducerView({ producerId, navigate, producers, setProducers, projects,
               <div className="week-col-days">
                 {w.days.map((date, di) => {
                   const ents = entriesForDay(w, di);
+                  const iso = _isoDateP(date);
                   const isToday = _sameDayP(date, TODAY) && weekOffset===0;
+                  const isDragOver = dragOverIso === iso;
                   return (
-                    <div className={'day-row ' + (isToday?'is-today':'')} key={di}>
+                    <div className={'day-row ' + (isToday?'is-today ':'') + (isDragOver?'is-drag-over':'')}
+                      key={di}
+                      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragOverIso !== iso) setDragOverIso(iso); }}
+                      onDragLeave={() => { if (dragOverIso === iso) setDragOverIso(null); }}
+                      onDrop={e => {
+                        e.preventDefault();
+                        setDragOverIso(null);
+                        const aid = e.dataTransfer.getData('text/plain');
+                        if (aid) moveAssignment(aid, iso);
+                      }}>
                       <div className="day-row-head">
                         <span className="day-name">{HEBREW_DAYS[di]}</span>
                         <span className="day-date">{_fmtDMP(date)}</span>
                         {isToday && <span className="day-today">היום</span>}
+                        <button className="day-add-btn" title="הוסף יום חופש / פנוי / הערה"
+                          onClick={() => setAddMenuIso(addMenuIso === iso ? null : iso)}>+</button>
                       </div>
+                      {addMenuIso === iso && (
+                        <DayAddMenu iso={iso}
+                          onAdd={(label, hours) => { addDayEntry(iso, label, hours); setAddMenuIso(null); }}
+                          onClose={() => setAddMenuIso(null)}/>
+                      )}
                       <div className="day-row-body">
                         {ents.length === 0 ? (
                           <div className="day-empty">—</div>
@@ -298,22 +331,40 @@ function ProducerView({ producerId, navigate, producers, setProducers, projects,
                           if (e.kind === 'holiday') {
                             return <div className="day-chip is-holiday" key={ei}>{e.label}</div>;
                           }
+                          const aid = e.assignmentId;
+                          const baseDrag = aid ? {
+                            draggable: true,
+                            onDragStart: (ev) => { ev.dataTransfer.setData('text/plain', aid); ev.dataTransfer.effectAllowed = 'move'; },
+                          } : {};
                           if (e.kind === 'vacation') {
-                            return <div className="day-chip is-vacation" key={ei}>{e.label}</div>;
+                            return <div className="day-chip is-vacation has-action" key={ei} {...baseDrag}>
+                              <span>{e.label}</span>
+                              {aid && <button className="chip-del" title="מחק" onClick={(ev) => { ev.stopPropagation(); removeAssignment(aid); }}>×</button>}
+                            </div>;
                           }
                           if (e.kind === 'free') {
-                            return <div className="day-chip is-free" key={ei}>{e.label}</div>;
+                            return <div className="day-chip is-free has-action" key={ei} {...baseDrag}>
+                              <span>{e.label}</span>
+                              {aid && <button className="chip-del" title="מחק" onClick={(ev) => { ev.stopPropagation(); removeAssignment(aid); }}>×</button>}
+                            </div>;
+                          }
+                          if (e.kind === 'note') {
+                            return <div className="day-chip is-note has-action" key={ei} {...baseDrag}>
+                              <span>{e.label}</span>
+                              {aid && <button className="chip-del" title="מחק" onClick={(ev) => { ev.stopPropagation(); removeAssignment(aid); }}>×</button>}
+                            </div>;
                           }
                           const cli = e.proj.client;
                           return (
-                            <div className="day-chip is-project" key={ei}
+                            <div className="day-chip is-project has-action" key={ei}
                                  style={{borderInlineEndColor: prod.color}}
-                                 onClick={() => {/* future: drawer */}}>
+                                 {...baseDrag}>
                               <div className="chip-title">{e.proj.name}</div>
                               <div className="chip-meta">
                                 <span>{cli || '—'}</span>
                                 <span className="chip-hours">{e.hours} שע׳</span>
                               </div>
+                              {aid && <button className="chip-del" title="מחק שיבוץ" onClick={(ev) => { ev.stopPropagation(); removeAssignment(aid); }}>×</button>}
                             </div>
                           );
                         })}
@@ -469,6 +520,37 @@ function ProducerView({ producerId, navigate, producers, setProducers, projects,
       {/* History dashboard */}
       <ProducerHistory producerId={producerId}/>
     </>
+  );
+}
+
+// Quick-add menu for non-project entries on a day cell (vacation / free / sick / custom note)
+function DayAddMenu({ iso, onAdd, onClose }) {
+  const [custom, setCustom] = React.useState('');
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    const id = setTimeout(() => document.addEventListener('mousedown', handler), 0);
+    return () => { clearTimeout(id); document.removeEventListener('mousedown', handler); };
+  }, []);
+  const submitCustom = () => {
+    const v = custom.trim();
+    if (v) onAdd(v, 0);
+  };
+  return (
+    <div className="day-add-menu" ref={ref}>
+      <div className="day-add-options">
+        <button onClick={() => onAdd('חופש', 0)}>🏖 חופש</button>
+        <button onClick={() => onAdd('פנוי', 0)}>· פנוי</button>
+        <button onClick={() => onAdd('מחלה', 0)}>+ מחלה</button>
+        <button onClick={() => onAdd('מילואים', 0)}>★ מילואים</button>
+      </div>
+      <div className="day-add-custom">
+        <input placeholder="טקסט חופשי..." value={custom} autoFocus
+          onChange={e => setCustom(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') submitCustom(); else if (e.key === 'Escape') onClose(); }}/>
+        <button className="day-add-save" onClick={submitCustom} disabled={!custom.trim()}>הוסף</button>
+      </div>
+    </div>
   );
 }
 
