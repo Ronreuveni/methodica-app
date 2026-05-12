@@ -295,9 +295,26 @@ function BoardTable({ rows, editing, setEditing, updateProject, removeProject, t
     return true;
   });
 
-  // Suggestion pools for ComboInput dropdowns — values from full project pool
-  const names = [...new Set(pool.map(p => p.name).filter(Boolean))].sort();
-  const suggest = { names, clients, types, pms };
+  // Suggestion pools for ComboInput dropdowns —
+  // union of canonical master lists + values used in projects + values used in history.
+  // (ColFilter lists above stay as "values present in current rows" — filtering by
+  //  an unused value would be useless.)
+  const hist = (typeof HISTORY !== 'undefined' && HISTORY) ? HISTORY : [];
+  const uniq = (arr) => [...new Set(arr.filter(Boolean))].sort();
+  const suggest = {
+    names:   uniq([...pool.map(p => p.name),  ...hist.map(h => h.name)]),
+    clients: uniq([
+      ...((typeof CLIENTS !== 'undefined' && CLIENTS) ? CLIENTS.map(c => c.name) : []),
+      ...pool.map(p => p.client),
+      ...hist.map(h => h.client),
+    ]),
+    types: uniq([
+      ...((typeof PROJECT_TYPES !== 'undefined' && PROJECT_TYPES) ? PROJECT_TYPES : []),
+      ...pool.map(p => p.type),
+      ...hist.map(h => h.type),
+    ]),
+    pms: uniq([...pool.map(p => p.pm), ...hist.map(h => h.pm)]),
+  };
 
   return (
     <div className="card">
