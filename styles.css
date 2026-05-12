@@ -1630,3 +1630,25 @@ html .prod-load-dots .ld.hot { background: var(--danger); }
 }
 .day-chip:hover .chip-del { opacity: 1; }
 .chip-del:hover { background: #FCE4E1; color: var(--danger); }
+
+/* ── Floating Undo button (Ctrl+Z) ── */
+.undo-fab {
+  position: fixed; bottom: 22px; inset-inline-start: 22px; z-index: 9500;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 16px;
+  background: var(--ink-900); color: #fff;
+  border: none; border-radius: 999px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18), 0 2px 4px rgba(0,0,0,.1);
+  transition: transform .12s, background .12s, box-shadow .12s;
+}
+.undo-fab:hover { background: var(--brand-orange); transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,.22); }
+.undo-fab:active { transform: translateY(0); }
+.undo-fab .undo-icon { font-size: 16px; line-height: 1; font-weight: 700; }
+.undo-fab .undo-count {
+  background: rgba(255,255,255,.22); color: #fff;
+  font-size: 11px; font-weight: 700;
+  padding: 1px 8px; border-radius: 999px;
+  font-variant-numeric: tabular-nums; min-width: 18px; text-align: center;
+}

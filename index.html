@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="styles.css?v=15"/>
+<link rel="stylesheet" href="styles.css?v=16"/>
 </head>
 <body>
 <div id="root"></div>
@@ -25,6 +25,39 @@
 <script type="text/babel" src="view_producer.jsx?v=6"></script>
 
 <script type="text/babel">
+// One-time restore of canonical producers that may have been accidentally deleted.
+// Runs once per browser, then a flag in localStorage prevents it from running again,
+// so the user can legitimately delete these producers later if desired.
+(function restoreDefaultProducers() {
+  try {
+    if (localStorage.getItem('producers-restore-vAK-v1')) return;
+    const saved = localStorage.getItem('producers');
+    if (saved) {
+      const list = JSON.parse(saved);
+      const ids = new Set(list.map(p => p.id));
+      const targets = ['vadim', 'arik', 'kholod'];
+      const missing = targets.filter(id => !ids.has(id));
+      if (missing.length && Array.isArray(window.PRODUCERS)) {
+        const toAdd = window.PRODUCERS.filter(p => missing.includes(p.id));
+        if (toAdd.length) localStorage.setItem('producers', JSON.stringify([...list, ...toAdd]));
+      }
+    }
+    localStorage.setItem('producers-restore-vAK-v1', '1');
+  } catch {}
+})();
+
+function UndoButton({ count, onUndo }) {
+  if (count === 0) return null;
+  return (
+    <button className="undo-fab" onClick={onUndo}
+      title={'בטל פעולה אחרונה (' + count + ' זמינות) · Ctrl+Z'}>
+      <span className="undo-icon">↶</span>
+      <span>ביטול</span>
+      <span className="undo-count">{count}</span>
+    </button>
+  );
+}
+
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "density": "regular",
   "accent": "#EC8223",
@@ -116,6 +149,43 @@ function App() {
     });
   }, []);
 
+  // ─── Undo: up to 10 steps back across producers / projects / assignments / teams ───
+  const [history, setHistory] = React.useState([]);
+  const pushHistory = () => {
+    setHistory(h => [...(h.length >= 10 ? h.slice(1) : h), { producers, projects, assignments, teams }]);
+  };
+  const undo = React.useCallback(() => {
+    setHistory(h => {
+      if (h.length === 0) return h;
+      const prev = h[h.length - 1];
+      setProducers(prev.producers);
+      setProjects(prev.projects);
+      setAssignments(prev.assignments);
+      setTeams(prev.teams);
+      return h.slice(0, -1);
+    });
+  }, [setProducers, setProjects, setAssignments, setTeams]);
+  // Undo-aware setters passed to the views. Each snapshots the full state before mutating.
+  const setProducersU   = (val) => { pushHistory(); setProducers(val); };
+  const setProjectsU    = (val) => { pushHistory(); setProjects(val); };
+  const setAssignmentsU = (val) => { pushHistory(); setAssignments(val); };
+  const setTeamsU       = (val) => { pushHistory(); setTeams(val); };
+  // Global Ctrl/Cmd+Z. Skipped when focus is in an editable element so the browser's
+  // native text-undo keeps working inside inputs / textareas / contentEditable.
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        const t = e.target;
+        const tag = (t && t.tagName) ? t.tagName.toLowerCase() : '';
+        if (tag === 'input' || tag === 'textarea' || (t && t.isContentEditable)) return;
+        e.preventDefault();
+        undo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo]);
+
   const navigate = (v, pid) => {
     setView(v);
     if (pid) setProducerId(pid);
@@ -138,12 +208,13 @@ function App() {
 
   return (
     <div className="app">
-      <Sidebar view={view} setView={navigate} selectedProducer={producerId} producers={producers} setProducers={setProducers} teams={teams} setTeams={setTeams}/>
+      <Sidebar view={view} setView={navigate} selectedProducer={producerId} producers={producers} setProducers={setProducersU} teams={teams} setTeams={setTeamsU}/>
       <main className="main">
-        {view === 'board' && <BoardView navigate={navigate} projects={projects} setProjects={setProjects}/>}
-        {view === 'matrix' && <MatrixView navigate={navigate} assignments={assignments} setAssignments={setAssignments}/>}
-        {view === 'producer' && <ProducerView producerId={producerId} navigate={navigate} producers={producers} setProducers={setProducers} projects={projects} setProjects={setProjects} assignments={assignments} setAssignments={setAssignments}/>}
+        {view === 'board' && <BoardView navigate={navigate} projects={projects} setProjects={setProjectsU}/>}
+        {view === 'matrix' && <MatrixView navigate={navigate} assignments={assignments} setAssignments={setAssignmentsU}/>}
+        {view === 'producer' && <ProducerView producerId={producerId} navigate={navigate} producers={producers} setProducers={setProducersU} projects={projects} setProjects={setProjectsU} assignments={assignments} setAssignments={setAssignmentsU}/>}
       </main>
+      <UndoButton count={history.length} onUndo={undo}/>
       <TweaksPanel title="Tweaks">
         <TweakSection label="פריסה"/>
         <TweakRadio label="צפיפות" value={t.density}
