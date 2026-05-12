@@ -99,6 +99,15 @@ function BoardView({ navigate }) {
     return true;
   });
 
+  // In "הושלמו" tab: group similar tasks by client + project name (adjacent rows)
+  if (tab === 'done') {
+    visible.sort((a, b) => {
+      const c = (a.client || '').localeCompare(b.client || '', 'he');
+      if (c !== 0) return c;
+      return (a.name || '').localeCompare(b.name || '', 'he');
+    });
+  }
+
   // KPIs (always from full active set)
   const counts = {
     total: projects.filter(p => p.status !== 'done').length,
