@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="styles.css?v=12"/>
+<link rel="stylesheet" href="styles.css?v=13"/>
 </head>
 <body>
 <div id="root"></div>
@@ -19,10 +19,10 @@
 <script src="data.js?v=3"></script>
 <script type="text/babel" src="components.jsx"></script>
 <script type="text/babel" src="tweaks-panel.jsx"></script>
-<script type="text/babel" src="view_board.jsx?v=9"></script>
-<script type="text/babel" src="view_matrix.jsx?v=3"></script>
+<script type="text/babel" src="view_board.jsx?v=10"></script>
+<script type="text/babel" src="view_matrix.jsx?v=4"></script>
 <script type="text/babel" src="view_producer_history.jsx"></script>
-<script type="text/babel" src="view_producer.jsx?v=3"></script>
+<script type="text/babel" src="view_producer.jsx?v=4"></script>
 
 <script type="text/babel">
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
@@ -71,6 +71,50 @@ function App() {
     });
   }, []);
 
+  // Lifted shared state: projects (board edits + per-row reportLink/folderLink) sync across views.
+  const [projects, setProjectsRaw] = React.useState(() => {
+    const base = window.PROJECTS.map(p => ({ ...p, urgency: p.urgency || 'normal', archived: false }));
+    try {
+      const savedFull = JSON.parse(localStorage.getItem('projects-v2') || 'null');
+      if (Array.isArray(savedFull) && savedFull.length) { window.PROJECTS = savedFull; return savedFull; }
+      const savedOrder = JSON.parse(localStorage.getItem('board-order') || 'null');
+      if (Array.isArray(savedOrder) && savedOrder.length) {
+        const byId = new Map(base.map(p => [p.id, p]));
+        const ordered = savedOrder.map(id => byId.get(id)).filter(Boolean);
+        const seen = new Set(savedOrder);
+        const extras = base.filter(p => !seen.has(p.id));
+        const merged = [...ordered, ...extras];
+        window.PROJECTS = merged;
+        return merged;
+      }
+    } catch {}
+    return base;
+  });
+  const setProjects = React.useCallback((val) => {
+    setProjectsRaw(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      window.PROJECTS = next;
+      try { localStorage.setItem('projects-v2', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  // Lifted shared state: schedule assignments (drag/edit on producer view ↔ matrix view).
+  const [assignments, setAssignmentsRaw] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('assignments-v1') || 'null');
+      if (Array.isArray(saved) && saved.length) return saved;
+    } catch {}
+    return window.buildAssignments ? window.buildAssignments() : [];
+  });
+  const setAssignments = React.useCallback((val) => {
+    setAssignmentsRaw(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      try { localStorage.setItem('assignments-v1', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
   const navigate = (v, pid) => {
     setView(v);
     if (pid) setProducerId(pid);
@@ -95,9 +139,9 @@ function App() {
     <div className="app">
       <Sidebar view={view} setView={navigate} selectedProducer={producerId} producers={producers} setProducers={setProducers} teams={teams} setTeams={setTeams}/>
       <main className="main">
-        {view === 'board' && <BoardView navigate={navigate}/>}
-        {view === 'matrix' && <MatrixView navigate={navigate}/>}
-        {view === 'producer' && <ProducerView producerId={producerId} navigate={navigate} producers={producers} setProducers={setProducers}/>}
+        {view === 'board' && <BoardView navigate={navigate} projects={projects} setProjects={setProjects}/>}
+        {view === 'matrix' && <MatrixView navigate={navigate} assignments={assignments} setAssignments={setAssignments}/>}
+        {view === 'producer' && <ProducerView producerId={producerId} navigate={navigate} producers={producers} setProducers={setProducers} projects={projects} setProjects={setProjects} assignments={assignments} setAssignments={setAssignments}/>}
       </main>
       <TweaksPanel title="Tweaks">
         <TweakSection label="פריסה"/>

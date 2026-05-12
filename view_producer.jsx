@@ -36,7 +36,7 @@ function _sameDayP(a, b) {
   return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
 }
 
-function ProducerView({ producerId, navigate, producers, setProducers }) {
+function ProducerView({ producerId, navigate, producers, setProducers, projects, setProjects, assignments, setAssignments }) {
   const prod = (producers || PRODUCERS).find(p => p.id === producerId);
   if (!prod) return <div>מפיק.ה לא נמצא.ה</div>;
 
@@ -103,7 +103,8 @@ function ProducerView({ producerId, navigate, producers, setProducers }) {
     setEditing(false);
   };
 
-  const myProjects = PROJECTS.filter(p => p.producers.includes(producerId) && p.status !== 'done');
+  const _allProjects = projects || PROJECTS;
+  const myProjects = _allProjects.filter(p => p.producers.includes(producerId) && p.status !== 'done');
   const _isR = (v) => v && typeof v === 'object' && ('from' in v || 'to' in v);
   const _rEnd = (v) => !v ? '' : (_isR(v) ? (v.to || v.from || '') : v);
   const _rStart = (v) => !v ? '' : (_isR(v) ? (v.from || v.to || '') : v);
@@ -149,7 +150,7 @@ function ProducerView({ producerId, navigate, producers, setProducers }) {
       const entry = scheduleForCurrentWeek.find(s => s.day === dayIdx);
       if (!entry) return [];
       if (!entry.project) return [{ kind: entry.label?.includes('חופש')?'vacation':'free', label: entry.label || 'פנוי' }];
-      const proj = PROJECTS.find(p => p.id === entry.project);
+      const proj = _allProjects.find(p => p.id === entry.project);
       if (!proj) return [];
       return [{ kind: 'project', proj, hours: entry.hours }];
     }

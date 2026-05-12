@@ -43,23 +43,8 @@ function dueClass(days) {
   return 'due-later';
 }
 
-function BoardView({ navigate }) {
-  // ────────── State ──────────
-  // Projects — initial order is restored from localStorage so user's drag-reorder persists.
-  const [projects, setProjects] = React.useState(() => {
-    const base = PROJECTS.map(p => ({ ...p, urgency: p.urgency || 'normal', archived: false }));
-    try {
-      const saved = JSON.parse(localStorage.getItem('board-order') || 'null');
-      if (Array.isArray(saved) && saved.length) {
-        const byId = new Map(base.map(p => [p.id, p]));
-        const ordered = saved.map(id => byId.get(id)).filter(Boolean);
-        const seen = new Set(saved);
-        const extras = base.filter(p => !seen.has(p.id));
-        return [...ordered, ...extras];
-      }
-    } catch {}
-    return base;
-  });
+function BoardView({ navigate, projects, setProjects }) {
+  // Persist user-driven row order independently of the lifted projects state.
   React.useEffect(() => {
     try { localStorage.setItem('board-order', JSON.stringify(projects.map(p => p.id))); } catch {}
   }, [projects]);

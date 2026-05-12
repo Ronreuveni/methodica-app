@@ -121,10 +121,9 @@ function formatDayHeader(date) {
   };
 }
 
-function MatrixView({ navigate }) {
+function MatrixView({ navigate, assignments, setAssignments }) {
   const [range, setRange] = React.useState('week');
   const [weekOffset, setWeekOffset] = React.useState(0);
-  const [assignments, setAssignments] = React.useState(buildAssignments);
   const [projectModal, setProjectModal] = React.useState(null);
 
   // dragItem is state used ONLY for visual feedback (dim dragged card, highlight sidebar).
@@ -631,3 +630,4 @@ function ProjectModal({ projectId, assignments, onClose, onOpenProducer }) {
 }
 
 window.MatrixView = MatrixView;
+window.buildAssignments = buildAssignments;
