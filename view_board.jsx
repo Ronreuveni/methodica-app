@@ -295,8 +295,16 @@ function BoardTable({ rows, editing, setEditing, updateProject, removeProject, t
     return true;
   });
 
+  // Suggestion pools for text-input autocomplete (datalist) — values from full project pool
+  const names = [...new Set(pool.map(p => p.name).filter(Boolean))].sort();
+
   return (
     <div className="card">
+      {/* Shared datalists: native dropdown suggestions for free-text inputs */}
+      <datalist id="dl-board-name">{names.map(v => <option key={v} value={v}/>)}</datalist>
+      <datalist id="dl-board-client">{clients.map(v => <option key={v} value={v}/>)}</datalist>
+      <datalist id="dl-board-type">{types.map(v => <option key={v} value={v}/>)}</datalist>
+      <datalist id="dl-board-pm">{pms.map(v => <option key={v} value={v}/>)}</datalist>
       <table className="ptable board-table">
         <thead>
           <tr>
@@ -356,7 +364,7 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
       {/* Name + notes */}
       <td className="cell-name">
         {isEditing('name') ? (
-          <input autoFocus className="cell-input" defaultValue={p.name}
+          <input autoFocus className="cell-input" defaultValue={p.name} list="dl-board-name"
             onBlur={e => { updateProject(p.id, { name: e.target.value }); stopEdit(); }}
             onKeyDown={e => { if (e.key==='Enter') e.target.blur(); if (e.key==='Escape') stopEdit(); }}/>
         ) : (
@@ -370,7 +378,7 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
       {/* Client (free text) */}
       <td>
         {isEditing('client') ? (
-          <input autoFocus className="cell-input" defaultValue={p.client || ''}
+          <input autoFocus className="cell-input" defaultValue={p.client || ''} list="dl-board-client"
             onBlur={e => { updateProject(p.id, { client: e.target.value }); stopEdit(); }}
             onKeyDown={e => { if (e.key==='Enter') e.target.blur(); if (e.key==='Escape') stopEdit(); }}/>
         ) : (
@@ -383,7 +391,7 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
       {/* Type (free text) */}
       <td>
         {isEditing('type') ? (
-          <input autoFocus className="cell-input" defaultValue={p.type || ''}
+          <input autoFocus className="cell-input" defaultValue={p.type || ''} list="dl-board-type"
             onBlur={e => { updateProject(p.id, { type: e.target.value }); stopEdit(); }}
             onKeyDown={e => { if (e.key==='Enter') e.target.blur(); if (e.key==='Escape') stopEdit(); }}/>
         ) : (
@@ -409,7 +417,7 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
       {/* PM */}
       <td>
         {isEditing('pm') ? (
-          <input autoFocus className="cell-input" defaultValue={p.pm}
+          <input autoFocus className="cell-input" defaultValue={p.pm} list="dl-board-pm"
             onBlur={e => { updateProject(p.id, { pm: e.target.value }); stopEdit(); }}
             onKeyDown={e => { if (e.key==='Enter') e.target.blur(); if (e.key==='Escape') stopEdit(); }}/>
         ) : (
