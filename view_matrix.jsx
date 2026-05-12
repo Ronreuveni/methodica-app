@@ -236,7 +236,10 @@ function MatrixView({ navigate, assignments, setAssignments }) {
   const scheduledProjectIds = new Set(
     assignments.filter(a => dateList.includes(a.date) && a.project).map(a => a.project)
   );
-  const unscheduled = PROJECTS.filter(p => p.status !== 'done' && p.status !== 'frozen');
+  // Sidebar source list: all planning / production / review projects (explicit allowlist
+  // so adding a future status keeps the sidebar focused on active work).
+  const SIDEBAR_STATUSES = ['planning', 'production', 'review'];
+  const unscheduled = PROJECTS.filter(p => SIDEBAR_STATUSES.includes(p.status));
 
   return (
     <>
@@ -374,20 +377,105 @@ function MatrixView({ navigate, assignments, setAssignments }) {
 // ════════════════════════════════════════════════
 function UnscheduledSidebar({ projects, scheduledIds, dragItem, setDragItem, onDropOnSidebar }) {
   const [collapsed, setCollapsed] = React.useState(false);
+  // Status filter — all on by default. Click to toggle.
+  const [fStatuses, setFStatuses] = React.useState(['planning', 'production', 'review']);
+  // Producer filter — empty array = show projects assigned to any producer (and unassigned).
+  const [fProducers, setFProducers] = React.useState([]);
+  const [prodMenuOpen, setProdMenuOpen] = React.useState(false);
+  const prodMenuRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!prodMenuOpen) return;
+    const onDoc = (e) => { if (prodMenuRef.current && !prodMenuRef.current.contains(e.target)) setProdMenuOpen(false); };
+    const id = setTimeout(() => document.addEventListener('mousedown', onDoc), 0);
+    return () => { clearTimeout(id); document.removeEventListener('mousedown', onDoc); };
+  }, [prodMenuOpen]);
+
+  const toggleStatus = (k) => setFStatuses(arr => arr.includes(k) ? arr.filter(x => x !== k) : [...arr, k]);
+  const toggleProducer = (id) => setFProducers(arr => arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id]);
+
+  const filtered = projects.filter(p => {
+    if (fStatuses.length === 0) return false; // user cleared status filter → nothing shown
+    if (!fStatuses.includes(p.status)) return false;
+    if (fProducers.length) {
+      const ps = p.producers || [];
+      if (!fProducers.some(id => ps.includes(id))) return false;
+    }
+    return true;
+  });
+
   const canDropHere = dragItem?.type === 'assignment';
-  const scheduledCount = projects.filter(p => scheduledIds && scheduledIds.has(p.id)).length;
+  const scheduledCount = filtered.filter(p => scheduledIds && scheduledIds.has(p.id)).length;
+  const filtersActive = fStatuses.length !== 3 || fProducers.length > 0;
 
   return (
     <aside className={'matrix-sidebar ' + (collapsed?'collapsed':'')}>
       <div className="sidebar-head">
         <div>
           <div className="sidebar-title">שיבוץ פרויקטים</div>
-          <div className="sidebar-sub">{projects.length} פרויקטים{scheduledCount > 0 ? ` · ${scheduledCount} משובצים` : ''}</div>
+          <div className="sidebar-sub">
+            {filtered.length} מתוך {projects.length} פרויקטים{scheduledCount > 0 ? ` · ${scheduledCount} משובצים` : ''}
+          </div>
         </div>
         <button className="sidebar-toggle" onClick={() => setCollapsed(c => !c)}>
           {collapsed ? '«' : '»'}
         </button>
       </div>
+
+      {!collapsed && (
+        <div className="sidebar-filters">
+          <div className="sf-row">
+            <span className="sf-label">סטטוס</span>
+            <div className="sf-chips">
+              {['planning','production','review'].map(k => {
+                const s = STATUSES[k];
+                const on = fStatuses.includes(k);
+                return (
+                  <button key={k} className={'sf-chip ' + (on?'on':'')}
+                    style={on ? { background: s.bg, color: s.color, borderColor: s.ring } : null}
+                    onClick={() => toggleStatus(k)}>
+                    <span className="sf-dot" style={{background: s.color}}/>
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="sf-row">
+            <span className="sf-label">מפיק.ה</span>
+            <div className="sf-producer-wrap" ref={prodMenuRef}>
+              <button className={'sf-producer-btn ' + (fProducers.length?'on':'')}
+                onClick={() => setProdMenuOpen(o => !o)}>
+                {fProducers.length === 0
+                  ? 'הכל'
+                  : fProducers.length === 1
+                    ? (PRODUCERS.find(p => p.id === fProducers[0])?.name || '1')
+                    : `${fProducers.length} נבחרו`} ▾
+              </button>
+              {prodMenuOpen && (
+                <div className="sf-producer-menu">
+                  <div className="sf-producer-opt" onClick={() => setFProducers([])}>
+                    <input type="checkbox" readOnly checked={fProducers.length === 0}/>
+                    <span>הכל</span>
+                  </div>
+                  <div className="sf-producer-sep"/>
+                  {PRODUCERS.map(pr => (
+                    <div key={pr.id} className="sf-producer-opt" onClick={() => toggleProducer(pr.id)}>
+                      <input type="checkbox" readOnly checked={fProducers.includes(pr.id)}/>
+                      <span className="avatar sm" style={{background:pr.color}}>{pr.name.charAt(0)}</span>
+                      <span>{pr.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          {filtersActive && (
+            <button className="sf-clear" onClick={() => { setFStatuses(['planning','production','review']); setFProducers([]); }}>
+              נקה סינון ↺
+            </button>
+          )}
+        </div>
+      )}
 
       {!collapsed && (
         <div
@@ -397,9 +485,11 @@ function UnscheduledSidebar({ projects, scheduledIds, dragItem, setDragItem, onD
           {canDropHere && (
             <div className="sidebar-drop-hint">גרור לכאן להסרה מהלוח</div>
           )}
-          {projects.length === 0 && !canDropHere ? (
-            <div className="sidebar-empty">כל הפרויקטים משובצים 🎉</div>
-          ) : projects.map(p => {
+          {filtered.length === 0 && !canDropHere ? (
+            <div className="sidebar-empty">
+              {filtersActive ? 'אין פרויקטים תואמים לסינון.' : 'כל הפרויקטים משובצים 🎉'}
+            </div>
+          ) : filtered.map(p => {
             const s = STATUSES[p.status];
             const dueRef = _rEndMx(p.due);
             const due  = dueRef ? new Date(dueRef) : null;
