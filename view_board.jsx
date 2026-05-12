@@ -122,6 +122,11 @@ function BoardView({ navigate }) {
     setEditing({ rowId: id, field: 'name' });
   };
 
+  const [showImportModal, setShowImportModal] = React.useState(false);
+  const addImportedProject = (draft) => {
+    setProjects(prev => [draft, ...prev]);
+  };
+
   // Filter projects
   const visible = projects.filter(p => {
     // Tab
@@ -164,6 +169,7 @@ function BoardView({ navigate }) {
         title="לוח הפקות"
         sub={'רבעון 2, 2026 · ' + counts.total + ' פרויקטים פעילים'}
         actions={<>
+          <button className="btn btn-ghost" onClick={() => setShowImportModal(true)}>📋 ייבא שורה</button>
           <button className="btn btn-ghost"><Icons.filter/> ייצוא</button>
           <button className="btn btn-accent" onClick={addNewProject}><Icons.plus/> פרויקט חדש</button>
         </>}
@@ -266,6 +272,12 @@ function BoardView({ navigate }) {
           <input placeholder="חיפוש פרויקט..." value={q} onChange={e=>setQ(e.target.value)}/>
         </div>
       </div>
+
+      {showImportModal && (
+        <PasteImportModal
+          onImport={addImportedProject}
+          onClose={() => setShowImportModal(false)}/>
+      )}
 
       {/* Body */}
       {mode === 'table' ? (
@@ -920,6 +932,170 @@ function KanbanCard({ p }) {
           )}
           {p.due ? <DateRangeLabel value={p.due} kind="due"/> : null}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Paste-from-Sheets import modal ───
+function PasteImportModal({ onImport, onClose }) {
+  const [raw, setRaw] = React.useState('');
+  const [rows, setRows] = React.useState([]);
+  const [hasHeaders, setHasHeaders] = React.useState(false);
+  const [selectedRowIdx, setSelectedRowIdx] = React.useState(0);
+  const [mapping, setMapping] = React.useState({ name:-1, client:-1, type:-1, pm:-1, hours:-1, start:-1, due:-1, status:-1, notes:-1 });
+  const [step, setStep] = React.useState('paste');
+
+  const doParse = (text) => {
+    const lines = text.trim().split(/\r?\n/)
+      .map(l => l.split('\t').map(c => c.trim()))
+      .filter(l => l.length > 1 || (l[0] && l[0].trim()));
+    if (!lines.length) return;
+    const first = lines[0];
+    const looksLikeHeader = first.some(c => /שם|לקוח|סוג|מנהל|שעות|תאריך|סטטוס|pm|type|name|client/i.test(c));
+    setHasHeaders(looksLikeHeader);
+    setRows(lines);
+    const m = { name:-1, client:-1, type:-1, pm:-1, hours:-1, start:-1, due:-1, status:-1, notes:-1 };
+    if (looksLikeHeader) {
+      first.forEach((h, i) => {
+        if (/שם|name/i.test(h) && m.name === -1) m.name = i;
+        else if (/לקוח|client/i.test(h) && m.client === -1) m.client = i;
+        else if (/סוג|type|הפקה/i.test(h) && m.type === -1) m.type = i;
+        else if (/מנהל|pm/i.test(h) && m.pm === -1) m.pm = i;
+        else if (/שעות|hours/i.test(h) && m.hours === -1) m.hours = i;
+        else if (/כניסה|start|התחל/i.test(h) && m.start === -1) m.start = i;
+        else if (/הגשה|due|סיום/i.test(h) && m.due === -1) m.due = i;
+        else if (/סטטוס|status/i.test(h) && m.status === -1) m.status = i;
+        else if (/הערות|notes/i.test(h) && m.notes === -1) m.notes = i;
+      });
+    }
+    setMapping(m);
+    setSelectedRowIdx(looksLikeHeader ? (lines.length > 1 ? 1 : 0) : 0);
+    setStep('map');
+  };
+
+  // Auto-read clipboard on mount
+  React.useEffect(() => {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(t => {
+        if (t && t.includes('\t')) { setRaw(t); doParse(t); }
+      }).catch(() => {});
+    }
+  }, []);
+
+  const dataRows = hasHeaders ? rows.slice(1) : rows;
+  const headers  = hasHeaders ? rows[0] : (rows[0] ? rows[0].map((_, i) => `עמודה ${i + 1}`) : []);
+  const selectedRow = dataRows[selectedRowIdx] || [];
+
+  const fieldDefs = [
+    { key:'name',   label:'שם פרויקט', req:true },
+    { key:'client', label:'לקוח' },
+    { key:'type',   label:'סוג הפקה' },
+    { key:'pm',     label:'מנהל.ת פרויקט' },
+    { key:'hours',  label:'שעות' },
+    { key:'start',  label:'כניסה להפקה' },
+    { key:'due',    label:'מועד הגשה' },
+    { key:'status', label:'סטטוס' },
+    { key:'notes',  label:'הערות' },
+  ];
+
+  const colOptions = headers.map((h, i) => ({
+    idx: i,
+    label: h + (selectedRow[i] ? ` — ${selectedRow[i]}` : ''),
+  }));
+
+  const handleImport = () => {
+    const get = (field) => mapping[field] >= 0 ? (selectedRow[mapping[field]] || '') : '';
+    const rawStatus = get('status');
+    const matchedStatus = Object.entries(STATUSES).find(([k, v]) => v.label === rawStatus || k === rawStatus);
+    const project = {
+      id: 'imp-' + Date.now(),
+      name:    get('name'),
+      client:  get('client'),
+      type:    get('type') || 'לומדה',
+      pm:      get('pm'),
+      hours:   parseInt(get('hours')) || 0,
+      start:   get('start'),
+      due:     get('due'),
+      status:  matchedStatus ? matchedStatus[0] : 'planning',
+      notes:   get('notes'),
+      producers: [],
+      urgency: 'normal',
+      archived: false,
+    };
+    onImport(project);
+    onClose();
+  };
+
+  return (
+    <div className="import-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="import-box">
+        <div className="import-head">
+          <span>ייבוא שורה מ-Google Sheets</span>
+          <button className="import-close" onClick={onClose}>×</button>
+        </div>
+
+        {step === 'paste' ? (
+          <div className="import-body">
+            <p className="import-hint">
+              העתק שורה ב-Google Sheets (Ctrl+C), ואז הדבק כאן (Ctrl+V):
+            </p>
+            <textarea className="import-textarea" rows={5}
+              placeholder="הדבק כאן שורה מ-Google Sheets..."
+              value={raw} onChange={e => setRaw(e.target.value)} autoFocus/>
+            <div className="import-foot">
+              <button className="btn btn-ghost" onClick={onClose}>ביטול</button>
+              <button className="btn btn-accent" onClick={() => doParse(raw)} disabled={!raw.trim()}>המשך →</button>
+            </div>
+          </div>
+        ) : (
+          <div className="import-body">
+            <p className="import-hint">
+              זוהו <strong>{headers.length}</strong> עמודות
+              {dataRows.length > 0 && <> ו-<strong>{dataRows.length}</strong> שורות נתונים</>}.
+              {' '}שייך כל שדה לעמודה הנכונה:
+            </p>
+
+            {dataRows.length > 1 && (
+              <div className="import-row-pick">
+                <label>שורה לייבוא:</label>
+                <select value={selectedRowIdx} onChange={e => setSelectedRowIdx(+e.target.value)}>
+                  {dataRows.map((r, i) => {
+                    const label = mapping.name >= 0 ? (r[mapping.name] || `שורה ${i + 1}`) : `שורה ${i + 1}`;
+                    return <option key={i} value={i}>{label}</option>;
+                  })}
+                </select>
+              </div>
+            )}
+
+            <div className="import-mapping">
+              {fieldDefs.map(({ key, label, req }) => (
+                <div key={key} className="import-map-row">
+                  <span className="import-map-label">{label}{req ? ' *' : ''}</span>
+                  <div className="import-map-right">
+                    <select className="import-map-sel" value={mapping[key]}
+                      onChange={e => setMapping(m => ({ ...m, [key]: +e.target.value }))}>
+                      <option value={-1}>— לא ממפה —</option>
+                      {colOptions.map(c => (
+                        <option key={c.idx} value={c.idx}>{c.label}</option>
+                      ))}
+                    </select>
+                    {mapping[key] >= 0 && selectedRow[mapping[key]] && (
+                      <span className="import-preview-val">{selectedRow[mapping[key]]}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="import-foot">
+              <button className="btn btn-ghost" onClick={() => setStep('paste')}>← חזרה</button>
+              <button className="btn btn-accent" onClick={handleImport} disabled={!dataRows.length}>
+                ייבא פרויקט
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
