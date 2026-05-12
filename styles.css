@@ -1554,4 +1554,20 @@ html .prod-load-dots .ld.hot { background: var(--danger); }
 .import-foot {
   display: flex; justify-content: flex-end; gap: 8px;
   margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line);
+  align-items: center;
 }
+.import-save-btn { margin-inline-end: auto; font-size: 12px; }
+
+.import-preset {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; margin-bottom: 14px;
+  background: #FFF8EC; border: 1px solid #F5D68A; border-radius: var(--r-md);
+}
+.import-preset-label { font-size: 12px; font-weight: 700; color: #8B6B23; }
+.import-preset-clear {
+  margin-inline-start: auto; background: transparent;
+  width: 22px; height: 22px; border-radius: 4px;
+  color: var(--ink-500); font-size: 16px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.import-preset-clear:hover { background: rgba(0,0,0,.06); color: var(--danger); }

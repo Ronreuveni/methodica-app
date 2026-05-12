@@ -938,12 +938,20 @@ function KanbanCard({ p }) {
 }
 
 // ─── Paste-from-Sheets import modal ───
+const IMPORT_MAPPING_KEY = 'import-mapping-v1';
+
 function PasteImportModal({ onImport, onClose }) {
   const [raw, setRaw] = React.useState('');
   const [rows, setRows] = React.useState([]);
   const [hasHeaders, setHasHeaders] = React.useState(false);
   const [selectedRowIdx, setSelectedRowIdx] = React.useState(0);
   const [mapping, setMapping] = React.useState({ name:-1, client:-1, type:-1, pm:-1, hours:-1, start:-1, due:-1, status:-1, notes:-1 });
+  const [autoMapping, setAutoMapping] = React.useState(null);   // auto-detected from headers
+  const [savedMapping, setSavedMapping] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(IMPORT_MAPPING_KEY) || 'null'); } catch { return null; }
+  });
+  const [usingSaved, setUsingSaved] = React.useState(false);
+  const [justSaved, setJustSaved] = React.useState(false);
   const [step, setStep] = React.useState('paste');
 
   const doParse = (text) => {
@@ -955,23 +963,55 @@ function PasteImportModal({ onImport, onClose }) {
     const looksLikeHeader = first.some(c => /שם|לקוח|סוג|מנהל|שעות|תאריך|סטטוס|pm|type|name|client/i.test(c));
     setHasHeaders(looksLikeHeader);
     setRows(lines);
-    const m = { name:-1, client:-1, type:-1, pm:-1, hours:-1, start:-1, due:-1, status:-1, notes:-1 };
+    const auto = { name:-1, client:-1, type:-1, pm:-1, hours:-1, start:-1, due:-1, status:-1, notes:-1 };
     if (looksLikeHeader) {
       first.forEach((h, i) => {
-        if (/שם|name/i.test(h) && m.name === -1) m.name = i;
-        else if (/לקוח|client/i.test(h) && m.client === -1) m.client = i;
-        else if (/סוג|type|הפקה/i.test(h) && m.type === -1) m.type = i;
-        else if (/מנהל|pm/i.test(h) && m.pm === -1) m.pm = i;
-        else if (/שעות|hours/i.test(h) && m.hours === -1) m.hours = i;
-        else if (/כניסה|start|התחל/i.test(h) && m.start === -1) m.start = i;
-        else if (/הגשה|due|סיום/i.test(h) && m.due === -1) m.due = i;
-        else if (/סטטוס|status/i.test(h) && m.status === -1) m.status = i;
-        else if (/הערות|notes/i.test(h) && m.notes === -1) m.notes = i;
+        if (/שם|name/i.test(h) && auto.name === -1) auto.name = i;
+        else if (/לקוח|client/i.test(h) && auto.client === -1) auto.client = i;
+        else if (/סוג|type|הפקה/i.test(h) && auto.type === -1) auto.type = i;
+        else if (/מנהל|pm/i.test(h) && auto.pm === -1) auto.pm = i;
+        else if (/שעות|hours/i.test(h) && auto.hours === -1) auto.hours = i;
+        else if (/כניסה|start|התחל/i.test(h) && auto.start === -1) auto.start = i;
+        else if (/הגשה|due|סיום/i.test(h) && auto.due === -1) auto.due = i;
+        else if (/סטטוס|status/i.test(h) && auto.status === -1) auto.status = i;
+        else if (/הערות|notes/i.test(h) && auto.notes === -1) auto.notes = i;
       });
     }
-    setMapping(m);
+    setAutoMapping(auto);
+    // If a saved mapping exists, prefer it; otherwise use auto-detection.
+    if (savedMapping) {
+      setMapping(savedMapping);
+      setUsingSaved(true);
+    } else {
+      setMapping(auto);
+      setUsingSaved(false);
+    }
     setSelectedRowIdx(looksLikeHeader ? (lines.length > 1 ? 1 : 0) : 0);
     setStep('map');
+  };
+
+  const switchToSaved = () => { if (savedMapping) { setMapping(savedMapping); setUsingSaved(true); } };
+  const switchToAuto  = () => { if (autoMapping)  { setMapping(autoMapping);  setUsingSaved(false); } };
+
+  const handleSaveMapping = () => {
+    try { localStorage.setItem(IMPORT_MAPPING_KEY, JSON.stringify(mapping)); } catch {}
+    setSavedMapping(mapping);
+    setUsingSaved(true);
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 1800);
+  };
+
+  const handleClearSaved = () => {
+    try { localStorage.removeItem(IMPORT_MAPPING_KEY); } catch {}
+    setSavedMapping(null);
+    setUsingSaved(false);
+    if (autoMapping) setMapping(autoMapping);
+  };
+
+  // When user manually edits a field's mapping, mark as no-longer-matching-saved
+  const updateMapping = (key, value) => {
+    setMapping(m => ({ ...m, [key]: value }));
+    setUsingSaved(false);
   };
 
   // Auto-read clipboard on mount
@@ -1056,6 +1096,17 @@ function PasteImportModal({ onImport, onClose }) {
               {' '}שייך כל שדה לעמודה הנכונה:
             </p>
 
+            {savedMapping && (
+              <div className="import-preset">
+                <span className="import-preset-label">מיפוי:</span>
+                <div className="seg-toggle">
+                  <button className={usingSaved ? 'active' : ''} onClick={switchToSaved}>שמור</button>
+                  <button className={!usingSaved ? 'active' : ''} onClick={switchToAuto}>זיהוי אוטומטי</button>
+                </div>
+                <button className="import-preset-clear" onClick={handleClearSaved} title="מחק את המיפוי השמור">×</button>
+              </div>
+            )}
+
             {dataRows.length > 1 && (
               <div className="import-row-pick">
                 <label>שורה לייבוא:</label>
@@ -1074,7 +1125,7 @@ function PasteImportModal({ onImport, onClose }) {
                   <span className="import-map-label">{label}{req ? ' *' : ''}</span>
                   <div className="import-map-right">
                     <select className="import-map-sel" value={mapping[key]}
-                      onChange={e => setMapping(m => ({ ...m, [key]: +e.target.value }))}>
+                      onChange={e => updateMapping(key, +e.target.value)}>
                       <option value={-1}>— לא ממפה —</option>
                       {colOptions.map(c => (
                         <option key={c.idx} value={c.idx}>{c.label}</option>
@@ -1090,6 +1141,9 @@ function PasteImportModal({ onImport, onClose }) {
 
             <div className="import-foot">
               <button className="btn btn-ghost" onClick={() => setStep('paste')}>← חזרה</button>
+              <button className="btn btn-ghost import-save-btn" onClick={handleSaveMapping} title="שמור את המיפוי הזה לפעם הבאה">
+                {justSaved ? '✓ נשמר' : '💾 שמור מיפוי'}
+              </button>
               <button className="btn btn-accent" onClick={handleImport} disabled={!dataRows.length}>
                 ייבא פרויקט
               </button>
