@@ -295,16 +295,12 @@ function BoardTable({ rows, editing, setEditing, updateProject, removeProject, t
     return true;
   });
 
-  // Suggestion pools for text-input autocomplete (datalist) — values from full project pool
+  // Suggestion pools for ComboInput dropdowns — values from full project pool
   const names = [...new Set(pool.map(p => p.name).filter(Boolean))].sort();
+  const suggest = { names, clients, types, pms };
 
   return (
     <div className="card">
-      {/* Shared datalists: native dropdown suggestions for free-text inputs */}
-      <datalist id="dl-board-name">{names.map(v => <option key={v} value={v}/>)}</datalist>
-      <datalist id="dl-board-client">{clients.map(v => <option key={v} value={v}/>)}</datalist>
-      <datalist id="dl-board-type">{types.map(v => <option key={v} value={v}/>)}</datalist>
-      <datalist id="dl-board-pm">{pms.map(v => <option key={v} value={v}/>)}</datalist>
       <table className="ptable board-table">
         <thead>
           <tr>
@@ -329,7 +325,8 @@ function BoardTable({ rows, editing, setEditing, updateProject, removeProject, t
           ) : filtered.map(p => (
             <BoardRow key={p.id} p={p}
               editing={editing} startEdit={startEdit} stopEdit={stopEdit}
-              updateProject={updateProject} removeProject={removeProject}/>
+              updateProject={updateProject} removeProject={removeProject}
+              suggest={suggest}/>
           ))}
         </tbody>
       </table>
@@ -337,7 +334,8 @@ function BoardTable({ rows, editing, setEditing, updateProject, removeProject, t
   );
 }
 
-function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProject }) {
+function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProject, suggest }) {
+  const sg = suggest || { names:[], clients:[], types:[], pms:[] };
   const isEditing = (field) => editing && editing.rowId === p.id && editing.field === field;
   const _dueRef = (() => {
     const v = p.due;
@@ -364,9 +362,9 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
       {/* Name + notes */}
       <td className="cell-name">
         {isEditing('name') ? (
-          <input autoFocus className="cell-input" defaultValue={p.name} list="dl-board-name"
-            onBlur={e => { updateProject(p.id, { name: e.target.value }); stopEdit(); }}
-            onKeyDown={e => { if (e.key==='Enter') e.target.blur(); if (e.key==='Escape') stopEdit(); }}/>
+          <ComboInput defaultValue={p.name} options={sg.names} className="cell-input"
+            onCommit={v => { updateProject(p.id, { name: v }); stopEdit(); }}
+            onCancel={stopEdit}/>
         ) : (
           <div onClick={() => startEdit(p.id, 'name')} className="cell-clickable">
             <div style={{fontWeight:600}}>{p.name || <span className="placeholder">שם פרויקט...</span>}</div>
@@ -378,9 +376,9 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
       {/* Client (free text) */}
       <td>
         {isEditing('client') ? (
-          <input autoFocus className="cell-input" defaultValue={p.client || ''} list="dl-board-client"
-            onBlur={e => { updateProject(p.id, { client: e.target.value }); stopEdit(); }}
-            onKeyDown={e => { if (e.key==='Enter') e.target.blur(); if (e.key==='Escape') stopEdit(); }}/>
+          <ComboInput defaultValue={p.client || ''} options={sg.clients} className="cell-input"
+            onCommit={v => { updateProject(p.id, { client: v }); stopEdit(); }}
+            onCancel={stopEdit}/>
         ) : (
           <div onClick={() => startEdit(p.id, 'client')} className="cell-clickable">
             <span style={{fontSize:12}}>{p.client || <span className="placeholder">לקוח…</span>}</span>
@@ -391,9 +389,9 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
       {/* Type (free text) */}
       <td>
         {isEditing('type') ? (
-          <input autoFocus className="cell-input" defaultValue={p.type || ''} list="dl-board-type"
-            onBlur={e => { updateProject(p.id, { type: e.target.value }); stopEdit(); }}
-            onKeyDown={e => { if (e.key==='Enter') e.target.blur(); if (e.key==='Escape') stopEdit(); }}/>
+          <ComboInput defaultValue={p.type || ''} options={sg.types} className="cell-input"
+            onCommit={v => { updateProject(p.id, { type: v }); stopEdit(); }}
+            onCancel={stopEdit}/>
         ) : (
           <div onClick={() => startEdit(p.id, 'type')} className="cell-clickable">
             <span style={{fontSize:12, color:'var(--ink-700)'}}>{p.type || <span className="placeholder">סוג…</span>}</span>
@@ -417,9 +415,9 @@ function BoardRow({ p, editing, startEdit, stopEdit, updateProject, removeProjec
       {/* PM */}
       <td>
         {isEditing('pm') ? (
-          <input autoFocus className="cell-input" defaultValue={p.pm} list="dl-board-pm"
-            onBlur={e => { updateProject(p.id, { pm: e.target.value }); stopEdit(); }}
-            onKeyDown={e => { if (e.key==='Enter') e.target.blur(); if (e.key==='Escape') stopEdit(); }}/>
+          <ComboInput defaultValue={p.pm || ''} options={sg.pms} className="cell-input"
+            onCommit={v => { updateProject(p.id, { pm: v }); stopEdit(); }}
+            onCancel={stopEdit}/>
         ) : (
           <div onClick={() => startEdit(p.id, 'pm')} className="cell-clickable">
             <span style={{fontSize:12, color:'var(--ink-700)'}}>{p.pm || <span className="placeholder">—</span>}</span>
@@ -589,6 +587,58 @@ function DueLabel({ date }) {
         </span>
       )}
     </span>
+  );
+}
+
+// ComboInput — free-text input that also shows a dropdown of existing values.
+// Initial open: shows ALL options (so user can pick without clearing the field).
+// As the user types, options are filtered by substring match.
+function ComboInput({ defaultValue, options, onCommit, onCancel, className }) {
+  const [val, setVal] = React.useState(defaultValue || '');
+  const [hasTyped, setHasTyped] = React.useState(false);
+  const wrapRef = React.useRef(null);
+  const committedRef = React.useRef(false);
+
+  const commit = (v) => {
+    if (committedRef.current) return;
+    committedRef.current = true;
+    onCommit(v);
+  };
+
+  React.useEffect(() => {
+    const onDoc = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) commit(val);
+    };
+    const id = setTimeout(() => document.addEventListener('mousedown', onDoc), 0);
+    return () => { clearTimeout(id); document.removeEventListener('mousedown', onDoc); };
+  });
+
+  const list = (options || []);
+  const filtered = (hasTyped && val)
+    ? list.filter(o => o.toLowerCase().includes(val.toLowerCase()))
+    : list;
+
+  return (
+    <div className="combo-wrap" ref={wrapRef}>
+      <input autoFocus className={className} value={val}
+        onFocus={e => e.target.select()}
+        onChange={e => { setVal(e.target.value); setHasTyped(true); }}
+        onKeyDown={e => {
+          if (e.key === 'Enter') commit(val);
+          else if (e.key === 'Escape') { committedRef.current = true; onCancel(); }
+        }}/>
+      {filtered.length > 0 && (
+        <div className="combo-dropdown">
+          {filtered.map(o => (
+            <div key={o}
+              className={'combo-option' + (o === defaultValue ? ' is-current' : '')}
+              onMouseDown={e => { e.preventDefault(); commit(o); }}>
+              {o}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
