@@ -753,10 +753,23 @@ function ComboInput({ defaultValue, options, onCommit, onCancel, className }) {
   const inputRef = React.useRef(null);
   const committedRef = React.useRef(false);
 
+  // If the parent's defaultValue changes (e.g., a Firestore snapshot replaces
+  // the project object) AND the user hasn't started typing in this field, sync
+  // our local val to the new value. This prevents remote updates from clobbering
+  // an empty input the user just opened.
+  React.useEffect(() => {
+    if (!hasTyped && (defaultValue || '') !== val) {
+      setVal(defaultValue || '');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultValue]);
+
   const commit = (v) => {
     if (committedRef.current) return;
+    const trimmed = (v || '').trim();
     committedRef.current = true;
-    onCommit(v);
+    if (!trimmed) { onCancel(); return; }   // empty → discard, don't write
+    onCommit(trimmed);
   };
 
   // Recompute dropdown position relative to viewport (escapes ancestor overflow).
@@ -794,10 +807,13 @@ function ComboInput({ defaultValue, options, onCommit, onCancel, className }) {
   return (
     <div className="combo-wrap" ref={wrapRef}>
       <input ref={inputRef} autoFocus className={className} value={val}
+        autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
         onFocus={e => e.target.select()}
+        onBlur={() => commit(val)}
+        onCompositionEnd={e => setVal(e.target.value)}
         onChange={e => { setVal(e.target.value); setHasTyped(true); }}
         onKeyDown={e => {
-          if (e.key === 'Enter') commit(val);
+          if (e.key === 'Enter') { e.preventDefault(); commit(val); }
           else if (e.key === 'Escape') { committedRef.current = true; onCancel(); }
         }}/>
       {filtered.length > 0 && pos && (
