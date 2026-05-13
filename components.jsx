@@ -29,7 +29,7 @@ function Brand() {
   );
 }
 
-function Sidebar({ view, setView, selectedProducer, producers, setProducers, teams, setTeams, theme, setTheme }) {
+function Sidebar({ view, setView, selectedProducer, producers, setProducers, teams, setTeams, theme, setTheme, fbStatus, fbUser, fbSignIn, fbSignOut }) {
   // Producer add form
   const [addingProducer, setAddingProducer] = React.useState(false);
   const [newName, setNewName] = React.useState('');
@@ -239,13 +239,13 @@ function Sidebar({ view, setView, selectedProducer, producers, setProducers, tea
         )}
       </div>
       </div>
-      <SidebarSettings theme={theme} setTheme={setTheme}/>
+      <SidebarSettings theme={theme} setTheme={setTheme} fbStatus={fbStatus} fbUser={fbUser} fbSignIn={fbSignIn} fbSignOut={fbSignOut}/>
     </aside>
   );
 }
 
 // Collapsible settings panel pinned to the bottom of the sidebar.
-function SidebarSettings({ theme, setTheme }) {
+function SidebarSettings({ theme, setTheme, fbStatus, fbUser, fbSignIn, fbSignOut }) {
   const [open, setOpen] = React.useState(false);
 
   const setDataAttr = (key, value, storageKey) => {
@@ -286,6 +286,32 @@ function SidebarSettings({ theme, setTheme }) {
       </button>
       {open && (
         <div className="sf-body">
+          {/* Cloud connection + auth */}
+          <div className="sf-cloud">
+            <div className="sf-cloud-row">
+              <span className={'sf-dot sf-dot-' + (fbStatus || 'disabled')}/>
+              <span className="sf-cloud-label">
+                {fbStatus === 'connected'  ? 'מסונכרן בענן' :
+                 fbStatus === 'connecting' ? 'מתחבר…' :
+                 fbStatus === 'error'      ? 'שגיאת סנכרון' :
+                                              'מצב מקומי (localStorage)'}
+              </span>
+            </div>
+            {fbStatus !== 'disabled' && (
+              fbUser ? (
+                <div className="sf-cloud-user">
+                  {fbUser.photoURL ? <img src={fbUser.photoURL} alt="" className="sf-cloud-avatar"/> : <span className="sf-cloud-avatar sf-cloud-avatar-fallback">{(fbUser.displayName || fbUser.email || '?').charAt(0)}</span>}
+                  <span className="sf-cloud-user-name" title={fbUser.email || ''}>{fbUser.displayName || fbUser.email}</span>
+                  <button className="sf-cloud-out" onClick={fbSignOut}>נתק</button>
+                </div>
+              ) : (
+                <button className="sf-cloud-in" onClick={fbSignIn}>
+                  <span style={{fontSize:13}}>🔐</span> התחבר עם Google
+                </button>
+              )
+            )}
+          </div>
+
           <div className="sf-row-set">
             <div className="sf-row-set-label">ערכת נושא</div>
             <div className="sf-seg">

@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── PHASE 1 (default after setup): OPEN
+    // Anyone with the URL can read and write. Use during initial team
+    // rollout while everyone gets onboarded. Switch to Phase 2 before
+    // sharing the URL outside the studio.
+    match /workspaces/{workspaceId} {
+      allow read, write: if true;
+    }
+
+    // ─── PHASE 2 (recommended for production): SIGN-IN + DOMAIN ALLOWLIST
+    // To lock down:
+    //   1. Enable Authentication → Sign-in method → Google (in Firebase Console).
+    //   2. Comment out the Phase 1 block above.
+    //   3. Uncomment the block below.
+    //   4. Publish.
+    //   5. In the app's sidebar settings, click "התחבר עם Google".
+    //
+    // match /workspaces/{workspaceId} {
+    //   allow read, write:
+    //     if request.auth != null
+    //     && request.auth.token.email.matches(".*@methodic[.]co[.]il");
+    // }
+  }
+}

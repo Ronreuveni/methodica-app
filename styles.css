@@ -161,6 +161,36 @@ input, select { font-family: inherit; }
 }
 .sf-reset:hover { color: var(--danger); border-color: var(--danger); }
 
+/* ── Settings: cloud connection + Google sign-in ── */
+.sf-cloud {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 8px 10px;
+  background: var(--bg-muted);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.sf-cloud-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-700); font-weight: 600; }
+.sf-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,0.3); }
+.sf-dot-disabled   { background: #C9A86B; }
+.sf-dot-connecting { background: #C9A86B; animation: sfPulse 1.2s ease-in-out infinite; }
+.sf-dot-connected  { background: var(--brand-green); }
+.sf-dot-error      { background: var(--danger); }
+@keyframes sfPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.sf-cloud-label { font-size: 12px; }
+.sf-cloud-user { display: flex; align-items: center; gap: 7px; padding-top: 2px; }
+.sf-cloud-avatar { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; background: var(--brand-orange); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+.sf-cloud-avatar-fallback { object-fit: cover; }
+.sf-cloud-user-name { font-size: 12px; color: var(--ink-900); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sf-cloud-out { font-size: 11px; padding: 3px 8px; border-radius: 4px; color: var(--ink-500); background: transparent; cursor: pointer; }
+.sf-cloud-out:hover { color: var(--danger); background: rgba(0,0,0,.05); }
+.sf-cloud-in {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 6px 10px; font-size: 12px; font-weight: 600;
+  background: var(--bg-elevated); border: 1px solid var(--line-strong);
+  border-radius: var(--r-md); color: var(--ink-700); cursor: pointer;
+}
+.sf-cloud-in:hover { border-color: var(--brand-orange); color: var(--brand-orange); }
+
 /* Sidebar drag-reorder visuals */
 .nav-grip {
   display: inline-block; width: 12px; font-size: 11px; line-height: 1;
