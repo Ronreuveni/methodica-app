@@ -12,12 +12,12 @@
 // localStorage (current behaviour, no risk).
 
 window.FIREBASE_CONFIG = {
-  apiKey:            "",
-  authDomain:        "",
-  projectId:         "",
-  storageBucket:     "",
-  messagingSenderId: "",
-  appId:             ""
+  apiKey:            "AIzaSyCaCI6ya4Rxu_ODBuSZQG7fFagIumdGIYs",
+  authDomain:        "methodica-app-38b81.firebaseapp.com",
+  projectId:         "methodica-app-38b81",
+  storageBucket:     "methodica-app-38b81.firebasestorage.app",
+  messagingSenderId: "716832499995",
+  appId:             "1:716832499995:web:cff153e8371fe385a98bbe"
 };
 
 // Path that all studio data syncs to: workspaces/{id}
