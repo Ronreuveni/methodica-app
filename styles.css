@@ -44,6 +44,59 @@
   --font: 'Heebo', 'Assistant', -apple-system, sans-serif;
 }
 
+/* ─── Dark theme (toggle via sidebar settings) ─── */
+html[data-theme="dark"] {
+  --bg: #18171B;
+  --bg-elevated: #252327;
+  --bg-sidebar: #1F1D1B;
+  --bg-muted: #2A2826;
+  --ink-900: #FAFAF9;
+  --ink-700: #C9C4BC;
+  --ink-500: #8C857C;
+  --ink-400: #6F6963;
+  --ink-300: #4A4642;
+  --line: #3A3733;
+  --line-strong: #524D47;
+  --brand-orange-soft: #3A2F22;
+  --brand-blue-soft: #1F2E3A;
+  --brand-green-soft: #243023;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.45);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.6);
+}
+/* Surfaces that hard-code white in light mode → dark equivalents */
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .matrix-card,
+html[data-theme="dark"] .mcal-card,
+html[data-theme="dark"] .mcal-day,
+html[data-theme="dark"] .mcal-modal,
+html[data-theme="dark"] .import-box,
+html[data-theme="dark"] .modal-box,
+html[data-theme="dark"] .link-popover,
+html[data-theme="dark"] .combo-dropdown,
+html[data-theme="dark"] .col-filter-dropdown,
+html[data-theme="dark"] .row-prod-filter-menu,
+html[data-theme="dark"] .sf-producer-menu,
+html[data-theme="dark"] .mcal-dow-cell {
+  background: var(--bg-elevated);
+  color: var(--ink-900);
+  border-color: var(--line);
+}
+html[data-theme="dark"] .mcal-day:hover { background: #2F2D2A; }
+html[data-theme="dark"] .mcal-day.is-out { background: #211F1D; }
+html[data-theme="dark"] .mcal-day.is-weekend { background: #211F1D; }
+html[data-theme="dark"] .mcal-day-num { color: var(--ink-900); }
+html[data-theme="dark"] .day-chip.is-project,
+html[data-theme="dark"] .mcal-chip { color: var(--ink-700); }
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background: var(--bg-elevated); color: var(--ink-900); border-color: var(--line-strong);
+}
+html[data-theme="dark"] .nav-item.active { background: var(--brand-orange); color: #fff; }
+html[data-theme="dark"] .ptable tr:hover td { background: var(--bg-muted); }
+html[data-theme="dark"] .board-table tbody tr:hover td { background: var(--bg-muted); }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink-900); font-family: var(--font); font-size: 14px; -webkit-font-smoothing: antialiased; }
 html[dir="rtl"] { direction: rtl; }
@@ -56,9 +109,97 @@ input, select { font-family: inherit; }
 .sidebar {
   background: var(--bg-sidebar);
   border-inline-start: 1px solid var(--line);
-  padding: 20px 16px;
-  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; overflow: hidden;
 }
+.sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 16px 8px; }
+.sidebar-foot {
+  flex-shrink: 0;
+  border-top: 1px solid var(--line);
+  background: var(--bg-sidebar);
+  padding: 6px 10px 10px;
+}
+.sf-toggle {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px; border-radius: var(--r-md);
+  color: var(--ink-700); font-weight: 600; font-size: 13px;
+  background: transparent; cursor: pointer;
+}
+.sf-toggle:hover { background: rgba(0,0,0,.05); }
+.sf-toggle-icon { font-size: 15px; line-height: 1; }
+.sf-toggle-caret { margin-inline-start: auto; font-size: 10px; color: var(--ink-400); }
+.sf-body {
+  padding: 6px 4px 4px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.sf-row-set { display: flex; flex-direction: column; gap: 5px; }
+.sf-row-set-label { font-size: 11px; font-weight: 600; color: var(--ink-500); letter-spacing: .3px; }
+.sf-seg {
+  display: flex; gap: 2px;
+  background: var(--bg-muted);
+  border: 1px solid var(--line);
+  border-radius: 999px; padding: 2px;
+}
+.sf-seg button {
+  flex: 1; padding: 5px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; color: var(--ink-500);
+  background: transparent; cursor: pointer;
+}
+.sf-seg button:hover { color: var(--ink-900); }
+.sf-seg button.on { background: var(--ink-900); color: #fff; }
+.sf-seg-sm button { font-size: 11px; padding: 4px 6px; }
+.sf-row-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 12px; color: var(--ink-700); cursor: pointer;
+  padding: 4px 2px;
+}
+.sf-reset {
+  margin-top: 4px; padding: 6px 10px;
+  font-size: 11px; font-weight: 600;
+  background: transparent; border: 1px dashed var(--line-strong);
+  color: var(--ink-500); border-radius: var(--r-md); cursor: pointer;
+}
+.sf-reset:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Sidebar drag-reorder visuals */
+.nav-grip {
+  display: inline-block; width: 12px; font-size: 11px; line-height: 1;
+  color: var(--ink-300); cursor: grab; flex-shrink: 0;
+  letter-spacing: -1px;
+  opacity: 0; transition: opacity .12s, color .12s;
+}
+.nav-item-producer:hover .nav-grip { opacity: 1; }
+.nav-grip:hover { color: var(--brand-orange); }
+.nav-item-producer.is-dragging { opacity: 0.45; }
+.nav-item-producer.is-drop-target {
+  box-shadow: inset 0 2px 0 var(--brand-orange);
+  background: var(--brand-orange-soft, #FEF1E4);
+}
+
+/* Matrix: producer-row filter (which producers' rows are shown) */
+.row-prod-filter { position: relative; }
+.row-prod-filter-btn {
+  padding: 4px 11px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; color: var(--ink-700);
+  background: var(--bg-elevated); border: 1px solid var(--line);
+  cursor: pointer;
+}
+.row-prod-filter-btn:hover { border-color: var(--line-strong); }
+.row-prod-filter-btn.on { color: var(--brand-orange); border-color: var(--brand-orange); }
+.row-prod-filter-menu {
+  position: absolute; z-index: 200; top: calc(100% + 4px); inset-inline-start: 0;
+  min-width: 200px; background: #fff;
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+  max-height: 320px; overflow-y: auto; padding: 4px 0;
+}
+.row-prod-filter-opt {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; font-size: 12px; color: var(--ink-700); cursor: pointer;
+}
+.row-prod-filter-opt:hover { background: var(--bg-muted); }
+.row-prod-filter-opt input { margin: 0; flex-shrink: 0; }
+.row-prod-filter-sep { height: 1px; background: var(--line); margin: 4px 0; }
 .main { padding: 24px 32px 48px; min-width: 0; }
 
 /* Brand logo */

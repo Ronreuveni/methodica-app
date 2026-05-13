@@ -29,7 +29,7 @@ function Brand() {
   );
 }
 
-function Sidebar({ view, setView, selectedProducer, producers, setProducers, teams, setTeams }) {
+function Sidebar({ view, setView, selectedProducer, producers, setProducers, teams, setTeams, theme, setTheme }) {
   // Producer add form
   const [addingProducer, setAddingProducer] = React.useState(false);
   const [newName, setNewName] = React.useState('');
@@ -42,7 +42,29 @@ function Sidebar({ view, setView, selectedProducer, producers, setProducers, tea
   const [newTeamLeader, setNewTeamLeader] = React.useState('');
   const [collapsedTeams, setCollapsedTeams] = React.useState({});
 
+  // Drag-reorder: which producer is being dragged + the drop target.
+  const [dragId, setDragId] = React.useState(null);
+  const [dragOverId, setDragOverId] = React.useState(null);
+
   const safeTeams = teams || [];
+
+  // Reorder a producer to land immediately before another producer in the list.
+  // If the target is in a team, the dragged producer joins that team; if the
+  // target is ungrouped, the dragged producer leaves its team.
+  const reorderProducer = (fromId, beforeId) => {
+    if (!fromId || !beforeId || fromId === beforeId) return;
+    setProducers(prev => {
+      const fromIdx = prev.findIndex(p => p.id === fromId);
+      if (fromIdx < 0) return prev;
+      const tgtTeam = prev.find(p => p.id === beforeId)?.teamId || null;
+      const arr = [...prev];
+      const [item] = arr.splice(fromIdx, 1);
+      item.teamId = tgtTeam;
+      const insertAt = arr.findIndex(p => p.id === beforeId);
+      arr.splice(insertAt < 0 ? arr.length : insertAt, 0, item);
+      return arr;
+    });
+  };
 
   const nav = [
     { id: 'board',  label: 'לוח הפקות',  icon: Icons.board,  badge: PROJECTS.length },
@@ -82,15 +104,41 @@ function Sidebar({ view, setView, selectedProducer, producers, setProducers, tea
 
   const renderProdItem = (p, inTeam, isLeader) => (
     <div key={p.id}
-      className={'nav-item nav-item-producer ' + (inTeam ? 'team-member ' : '') + (view==='producer' && selectedProducer===p.id ? 'active' : '')}
+      draggable
+      onDragStart={e => {
+        e.dataTransfer.setData('text/plain', p.id);
+        e.dataTransfer.effectAllowed = 'move';
+        setDragId(p.id);
+      }}
+      onDragOver={e => {
+        if (!dragId || dragId === p.id) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverId !== p.id) setDragOverId(p.id);
+      }}
+      onDragLeave={() => { if (dragOverId === p.id) setDragOverId(null); }}
+      onDrop={e => {
+        e.preventDefault(); e.stopPropagation();
+        const fromId = dragId || e.dataTransfer.getData('text/plain');
+        setDragOverId(null); setDragId(null);
+        if (fromId && fromId !== p.id) reorderProducer(fromId, p.id);
+      }}
+      onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+      className={
+        'nav-item nav-item-producer ' +
+        (inTeam ? 'team-member ' : '') +
+        (view==='producer' && selectedProducer===p.id ? 'active ' : '') +
+        (dragId === p.id ? 'is-dragging ' : '') +
+        (dragOverId === p.id ? 'is-drop-target ' : '')
+      }
       onClick={() => setView('producer', p.id)}>
+      <span className="nav-grip" title="גרור לסידור">⋮⋮</span>
       <span className={'avatar sm' + (p.isExternal ? ' avatar-ext' : '')} style={{background:p.color}}>{p.name.charAt(0)}</span>
       <span className="prod-nav-label">
         {isLeader && <span className="team-leader-star">★</span>}
         {p.name}
         {p.isExternal && <span className="ext-badge">חיצוני</span>}
       </span>
-      <span className="nav-badge">{Math.round((p.positionPct ?? 1)*100)}%</span>
       {inTeam ? (
         <button className="prod-remove-btn" title="הוצא מקבוצה"
           onClick={e => { e.stopPropagation(); assignTeam(p.id, null); }}>←</button>
@@ -110,6 +158,7 @@ function Sidebar({ view, setView, selectedProducer, producers, setProducers, tea
 
   return (
     <aside className="sidebar">
+      <div className="sidebar-scroll">
       <Brand/>
       <div className="nav">
         <div className="nav-section">מבטים</div>
@@ -189,7 +238,90 @@ function Sidebar({ view, setView, selectedProducer, producers, setProducers, tea
           </div>
         )}
       </div>
+      </div>
+      <SidebarSettings theme={theme} setTheme={setTheme}/>
     </aside>
+  );
+}
+
+// Collapsible settings panel pinned to the bottom of the sidebar.
+function SidebarSettings({ theme, setTheme }) {
+  const [open, setOpen] = React.useState(false);
+
+  const setDataAttr = (key, value, storageKey) => {
+    document.documentElement.dataset[key] = value;
+    try { localStorage.setItem(storageKey, value); } catch {}
+  };
+
+  const [density, setDensity] = React.useState(() => {
+    try { return localStorage.getItem('pref-density') || document.documentElement.dataset.density || 'regular'; }
+    catch { return 'regular'; }
+  });
+  const [fireIcons, setFireIcons] = React.useState(() => {
+    try { return (localStorage.getItem('pref-fire') ?? '1') === '1'; }
+    catch { return true; }
+  });
+  const [capBars, setCapBars] = React.useState(() => {
+    try { return (localStorage.getItem('pref-capbars') ?? '1') === '1'; }
+    catch { return true; }
+  });
+
+  // Apply on mount + whenever any of these settings change.
+  React.useEffect(() => { setDataAttr('density', density, 'pref-density'); }, [density]);
+  React.useEffect(() => {
+    document.documentElement.dataset.fire = fireIcons ? '1' : '0';
+    try { localStorage.setItem('pref-fire', fireIcons ? '1' : '0'); } catch {}
+  }, [fireIcons]);
+  React.useEffect(() => {
+    document.documentElement.dataset.capbars = capBars ? '1' : '0';
+    try { localStorage.setItem('pref-capbars', capBars ? '1' : '0'); } catch {}
+  }, [capBars]);
+
+  return (
+    <div className={'sidebar-foot ' + (open ? 'is-open' : '')}>
+      <button className="sf-toggle" onClick={() => setOpen(o => !o)}>
+        <span className="sf-toggle-icon">⚙</span>
+        <span>הגדרות</span>
+        <span className="sf-toggle-caret">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="sf-body">
+          <div className="sf-row-set">
+            <div className="sf-row-set-label">ערכת נושא</div>
+            <div className="sf-seg">
+              <button className={theme === 'light' ? 'on' : ''} onClick={() => setTheme('light')} title="בהיר">☀ בהיר</button>
+              <button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')} title="כהה">☾ כהה</button>
+            </div>
+          </div>
+          <div className="sf-row-set">
+            <div className="sf-row-set-label">צפיפות</div>
+            <div className="sf-seg sf-seg-sm">
+              <button className={density === 'compact' ? 'on' : ''} onClick={() => setDensity('compact')}>צפוף</button>
+              <button className={density === 'regular' ? 'on' : ''} onClick={() => setDensity('regular')}>רגיל</button>
+              <button className={density === 'comfy' ? 'on' : ''} onClick={() => setDensity('comfy')}>מרווח</button>
+            </div>
+          </div>
+          <label className="sf-row-toggle">
+            <span>אייקוני 🔥 לפרויקטים בוערים</span>
+            <input type="checkbox" checked={fireIcons} onChange={e => setFireIcons(e.target.checked)}/>
+          </label>
+          <label className="sf-row-toggle">
+            <span>פסי קיבולת על מפיקים</span>
+            <input type="checkbox" checked={capBars} onChange={e => setCapBars(e.target.checked)}/>
+          </label>
+          <button className="sf-reset" onClick={() => {
+            if (!confirm('לאפס את הנתונים השמורים? כל הסידור והעריכות יימחקו.')) return;
+            try {
+              ['producers','projects-v2','assignments-v1','teams','board-order','view','producerId',
+               'pref-density','pref-fire','pref-capbars','theme','producers-restore-vAK-v1',
+               'import-mapping-v1','statusOverrides'
+              ].forEach(k => localStorage.removeItem(k));
+            } catch {}
+            location.reload();
+          }}>איפוס נתונים מלא</button>
+        </div>
+      )}
+    </div>
   );
 }
 

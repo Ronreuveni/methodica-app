@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="styles.css?v=19"/>
+<link rel="stylesheet" href="styles.css?v=20"/>
 </head>
 <body>
 <div id="root"></div>
@@ -17,10 +17,10 @@
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
 <script src="data.js?v=3"></script>
-<script type="text/babel" src="components.jsx"></script>
+<script type="text/babel" src="components.jsx?v=2"></script>
 <script type="text/babel" src="tweaks-panel.jsx"></script>
 <script type="text/babel" src="view_board.jsx?v=11"></script>
-<script type="text/babel" src="view_matrix.jsx?v=7"></script>
+<script type="text/babel" src="view_matrix.jsx?v=8"></script>
 <script type="text/babel" src="view_producer_history.jsx"></script>
 <script type="text/babel" src="view_producer.jsx?v=6"></script>
 
@@ -69,6 +69,14 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  // Theme (light / dark). Persisted to localStorage and reflected as data-theme on <html>.
+  const [theme, setTheme] = React.useState(() => {
+    try { return localStorage.getItem('theme') || 'light'; } catch { return 'light'; }
+  });
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('theme', theme); } catch {}
+  }, [theme]);
   const [view, setView] = React.useState(() => {
     try { return localStorage.getItem('view') || 'board'; } catch { return 'board'; }
   });
@@ -208,7 +216,7 @@ function App() {
 
   return (
     <div className="app">
-      <Sidebar view={view} setView={navigate} selectedProducer={producerId} producers={producers} setProducers={setProducersU} teams={teams} setTeams={setTeamsU}/>
+      <Sidebar view={view} setView={navigate} selectedProducer={producerId} producers={producers} setProducers={setProducersU} teams={teams} setTeams={setTeamsU} theme={theme} setTheme={setTheme}/>
       <main className="main">
         {view === 'board' && <BoardView navigate={navigate} projects={projects} setProjects={setProjectsU}/>}
         {view === 'matrix' && <MatrixView navigate={navigate} assignments={assignments} setAssignments={setAssignmentsU}/>}

@@ -128,6 +128,17 @@ function MatrixView({ navigate, assignments, setAssignments }) {
   const [weekOffset, setWeekOffset] = React.useState(0);
   const [monthOffset, setMonthOffset] = React.useState(0);
   const [projectModal, setProjectModal] = React.useState(null);
+  // Producer-row visibility filter. Empty array = show all producers.
+  const [visibleProducerIds, setVisibleProducerIds] = React.useState([]);
+  const [producerFilterOpen, setProducerFilterOpen] = React.useState(false);
+  const producerFilterRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!producerFilterOpen) return;
+    const onDoc = (e) => { if (producerFilterRef.current && !producerFilterRef.current.contains(e.target)) setProducerFilterOpen(false); };
+    const id = setTimeout(() => document.addEventListener('mousedown', onDoc), 0);
+    return () => { clearTimeout(id); document.removeEventListener('mousedown', onDoc); };
+  }, [producerFilterOpen]);
+  const toggleProducerVis = (id) => setVisibleProducerIds(arr => arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id]);
 
   // dragItem is state used ONLY for visual feedback (dim dragged card, highlight sidebar).
   // Actual drag data travels via e.dataTransfer so it's always available synchronously.
@@ -157,12 +168,24 @@ function MatrixView({ navigate, assignments, setAssignments }) {
   } else {
     const baseStart = new Date(WEEK_START);
     baseStart.setDate(baseStart.getDate() + weekOffset * 7);
-    const numDays = range === 'week' ? 5 : 10;
-    dateList = Array.from({ length: numDays }, (_, i) => {
-      const d = new Date(baseStart);
-      d.setDate(baseStart.getDate() + i);
-      return d.toISOString().slice(0,10);
-    });
+    dateList = [];
+    if (range === 'week') {
+      // 5 working days: Sun → Thu of the target week.
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(baseStart);
+        d.setDate(baseStart.getDate() + i);
+        dateList.push(d.toISOString().slice(0,10));
+      }
+    } else if (range === 'fortnight') {
+      // 10 working days = Sun–Thu of week W + Sun–Thu of week W+1. Fri/Sat skipped.
+      for (let w = 0; w < 2; w++) {
+        for (let di = 0; di < 5; di++) {
+          const d = new Date(baseStart);
+          d.setDate(baseStart.getDate() + w * 7 + di);
+          dateList.push(d.toISOString().slice(0,10));
+        }
+      }
+    }
   }
 
   const numDays = dateList.length;
@@ -301,6 +324,34 @@ function MatrixView({ navigate, assignments, setAssignments }) {
           <button className={range==='month'?'active':''} onClick={()=>setRange('month')}>חודש</button>
         </div>
         <span className="filter-sep"/>
+        <span className="filters-label">מפיק.ה:</span>
+        <div className="row-prod-filter" ref={producerFilterRef}>
+          <button className={'row-prod-filter-btn ' + (visibleProducerIds.length ? 'on' : '')}
+            onClick={() => setProducerFilterOpen(o => !o)}>
+            {visibleProducerIds.length === 0
+              ? 'הכל'
+              : visibleProducerIds.length === 1
+                ? (PRODUCERS.find(p => p.id === visibleProducerIds[0])?.name || '1')
+                : `${visibleProducerIds.length} נבחרו`} ▾
+          </button>
+          {producerFilterOpen && (
+            <div className="row-prod-filter-menu">
+              <div className="row-prod-filter-opt" onClick={() => setVisibleProducerIds([])}>
+                <input type="checkbox" readOnly checked={visibleProducerIds.length === 0}/>
+                <span>הכל</span>
+              </div>
+              <div className="row-prod-filter-sep"/>
+              {PRODUCERS.map(pr => (
+                <div key={pr.id} className="row-prod-filter-opt" onClick={() => toggleProducerVis(pr.id)}>
+                  <input type="checkbox" readOnly checked={visibleProducerIds.includes(pr.id)}/>
+                  <span className="avatar sm" style={{background:pr.color}}>{pr.name.charAt(0)}</span>
+                  <span>{pr.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <span className="filter-sep"/>
         <div className="legend">
           <span><i className="lg-dot lg-load-ok"/>עומס תקין</span>
           <span><i className="lg-dot lg-load-mid"/>עומס גבוה (70-90%)</span>
@@ -346,7 +397,7 @@ function MatrixView({ navigate, assignments, setAssignments }) {
               </tr>
             </thead>
             <tbody>
-              {PRODUCERS.map(prod => {
+              {PRODUCERS.filter(p => visibleProducerIds.length === 0 || visibleProducerIds.includes(p.id)).map(prod => {
                 const total    = producerTotals[prod.id];
                 const targetHrs = range === 'week' ? 45 : range === 'fortnight' ? 90 : numDays * 9;
                 const pct      = total / targetHrs;
