@@ -93,9 +93,92 @@ html[data-theme="dark"] select,
 html[data-theme="dark"] textarea {
   background: var(--bg-elevated); color: var(--ink-900); border-color: var(--line-strong);
 }
-html[data-theme="dark"] .nav-item.active { background: var(--brand-orange); color: #fff; }
 html[data-theme="dark"] .ptable tr:hover td { background: var(--bg-muted); }
 html[data-theme="dark"] .board-table tbody tr:hover td { background: var(--bg-muted); }
+
+/* Dark theme — extended polish */
+html[data-theme="dark"] body { background: var(--bg); color: var(--ink-900); }
+html[data-theme="dark"] .kpi {
+  background: var(--bg-elevated); border: 1px solid var(--line);
+  color: var(--ink-900);
+}
+html[data-theme="dark"] .kpi-label { color: var(--ink-500); }
+html[data-theme="dark"] .kpi-sub { color: var(--ink-500); }
+html[data-theme="dark"] .kpi-accent { background: var(--line); }
+html[data-theme="dark"] .page-title { color: var(--ink-900); }
+html[data-theme="dark"] .page-sub { color: var(--ink-500); }
+html[data-theme="dark"] .ptable thead th { background: var(--bg-muted); color: var(--ink-700); border-color: var(--line); }
+html[data-theme="dark"] .ptable td { border-color: var(--line); color: var(--ink-900); }
+html[data-theme="dark"] .ptable tr { background: var(--bg-elevated); }
+html[data-theme="dark"] .matrix thead th { background: var(--bg-muted); color: var(--ink-700); }
+html[data-theme="dark"] .matrix td { color: var(--ink-900); border-color: var(--line); }
+html[data-theme="dark"] .matrix .prod-cell { background: var(--bg-muted); }
+html[data-theme="dark"] .matrix .cell { background: var(--bg-elevated); }
+html[data-theme="dark"] .matrix .cell.today { background: #2A2418; }
+html[data-theme="dark"] .matrix .day-col.today { background: #2A2418; box-shadow: inset 0 -3px 0 var(--brand-orange); }
+html[data-theme="dark"] .filters .chip { background: var(--bg-elevated); color: var(--ink-700); border-color: var(--line); }
+html[data-theme="dark"] .filters .chip.active { background: var(--brand-orange); color: #fff; }
+html[data-theme="dark"] .seg-toggle { background: var(--bg-muted); }
+html[data-theme="dark"] .seg-toggle button { color: var(--ink-500); }
+html[data-theme="dark"] .seg-toggle button.active { background: var(--brand-orange); color: #fff; }
+html[data-theme="dark"] .board-tabs { background: var(--bg-elevated); border-color: var(--line); }
+html[data-theme="dark"] .board-tab { color: var(--ink-500); }
+html[data-theme="dark"] .board-tab:hover { color: var(--ink-900); }
+html[data-theme="dark"] .board-tab.active { background: var(--brand-orange); color: #fff; }
+html[data-theme="dark"] .board-tab .tab-count { background: var(--bg-muted); color: var(--ink-500); }
+html[data-theme="dark"] .board-tab.active .tab-count { background: rgba(255,255,255,.22); color: #fff; }
+html[data-theme="dark"] .view-toggle { background: var(--bg-elevated); border-color: var(--line); }
+html[data-theme="dark"] .view-toggle button { color: var(--ink-500); }
+html[data-theme="dark"] .view-toggle button.active { background: var(--bg-muted); color: var(--ink-900); }
+html[data-theme="dark"] .search-box { background: var(--bg-muted); }
+html[data-theme="dark"] .search-box input { background: transparent; color: var(--ink-900); }
+html[data-theme="dark"] .btn { background: var(--bg-elevated); border-color: var(--line-strong); color: var(--ink-900); }
+html[data-theme="dark"] .btn-ghost { background: transparent; color: var(--ink-700); }
+html[data-theme="dark"] .btn-accent { background: var(--brand-orange); color: #fff; }
+html[data-theme="dark"] .legend { background: var(--bg-elevated); border-color: var(--line); color: var(--ink-500); }
+html[data-theme="dark"] .kanban-col { background: var(--bg-muted); border-color: var(--line); }
+html[data-theme="dark"] .kanban-col-head { background: var(--bg-elevated); }
+html[data-theme="dark"] .kanban-card { background: var(--bg-elevated); border-color: var(--line); }
+html[data-theme="dark"] .kanban-card-name { color: var(--ink-900); }
+html[data-theme="dark"] .kanban-card-meta, html[data-theme="dark"] .kanban-card-hours .u { color: var(--ink-500); }
+html[data-theme="dark"] .deadline-row { background: var(--bg-elevated); border-color: var(--line); }
+html[data-theme="dark"] .deadline-date { background: var(--bg-muted); border-color: var(--line); }
+html[data-theme="dark"] .prod-hero, html[data-theme="dark"] .prod-edit-panel { background: var(--bg-elevated); border-color: var(--line); color: var(--ink-900); }
+html[data-theme="dark"] .day-chip.is-free { background: repeating-linear-gradient(45deg, var(--bg-muted) 0 6px, transparent 6px 12px); border-color: var(--line); color: var(--ink-500); }
+html[data-theme="dark"] .day-chip.is-vacation { background: #3a2f1a; border-color: #5c4825; color: #D6B884; }
+html[data-theme="dark"] .day-chip.is-holiday { background: #2e1f3a; border-color: #4e3667; color: #C9B0DA; }
+html[data-theme="dark"] .day-chip { color: var(--ink-700); }
+html[data-theme="dark"] .day-chip.is-project { background: var(--bg-elevated); }
+html[data-theme="dark"] .week-col, html[data-theme="dark"] .timeline-card { background: var(--bg-elevated); border-color: var(--line); }
+html[data-theme="dark"] .week-col-head { background: var(--bg-muted); color: var(--ink-700); }
+html[data-theme="dark"] .week-col.is-current { background: #25241F; }
+html[data-theme="dark"] .day-row { color: var(--ink-700); }
+html[data-theme="dark"] .day-empty { color: var(--ink-400); }
+html[data-theme="dark"] .ptable tr.row-overdue td { background: #3a1f1d !important; }
+html[data-theme="dark"] .ptable tr.row-overdue:hover td { background: #4a2724 !important; }
+html[data-theme="dark"] .ptable tr.row-overdue .pname { color: #F2B8B2; }
+html[data-theme="dark"] .row-hot { background: linear-gradient(90deg, rgba(229,90,90,.08) 0%, transparent 30%); }
+html[data-theme="dark"] .mcal-day-num { color: var(--ink-900); }
+html[data-theme="dark"] .mcal-day-holiday { background: #3a2f1a; color: #D6B884; }
+html[data-theme="dark"] .mcal-rest { background: repeating-linear-gradient(-45deg, transparent 0 6px, var(--bg-muted) 6px 7px); color: var(--ink-500); }
+html[data-theme="dark"] .nav-item:hover:not(.active) { background: rgba(255,255,255,.04); }
+html[data-theme="dark"] .undo-fab { background: var(--brand-orange); color: #fff; }
+html[data-theme="dark"] .nav-section { color: var(--ink-500); }
+html[data-theme="dark"] .team-group-header { color: var(--ink-500); }
+html[data-theme="dark"] .team-group-header:hover { background: rgba(255,255,255,.04); }
+html[data-theme="dark"] .brand-word { color: var(--ink-900); }
+html[data-theme="dark"] .matrix-sidebar, html[data-theme="dark"] .sidebar-filters { background: var(--bg-elevated); border-color: var(--line); }
+html[data-theme="dark"] .unscheduled-card { background: var(--bg-muted); border-color: var(--line); }
+html[data-theme="dark"] .unsch-name { color: var(--ink-900); }
+html[data-theme="dark"] .unsch-meta { color: var(--ink-500); }
+html[data-theme="dark"] .sf-toggle:hover { background: rgba(255,255,255,.04); }
+html[data-theme="dark"] .sf-cloud { background: var(--bg-muted); border-color: var(--line); }
+html[data-theme="dark"] .sf-cloud-row, html[data-theme="dark"] .sf-cloud-user-name { color: var(--ink-900); }
+html[data-theme="dark"] .sf-cloud-in { background: var(--bg-elevated); border-color: var(--line-strong); color: var(--ink-700); }
+html[data-theme="dark"] .sf-seg { background: var(--bg-muted); border-color: var(--line); }
+html[data-theme="dark"] .sf-seg button { color: var(--ink-500); }
+html[data-theme="dark"] .sf-seg button.on { background: var(--brand-orange); color: #fff; }
+html[data-theme="dark"] .row-prod-filter-btn { background: var(--bg-elevated); border-color: var(--line); color: var(--ink-700); }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink-900); font-family: var(--font); font-size: 14px; -webkit-font-smoothing: antialiased; }
@@ -146,7 +229,7 @@ input, select { font-family: inherit; }
   background: transparent; cursor: pointer;
 }
 .sf-seg button:hover { color: var(--ink-900); }
-.sf-seg button.on { background: var(--ink-900); color: #fff; }
+.sf-seg button.on { background: var(--brand-orange); color: #fff; }
 .sf-seg-sm button { font-size: 11px; padding: 4px 6px; }
 .sf-row-toggle {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -190,6 +273,12 @@ input, select { font-family: inherit; }
   border-radius: var(--r-md); color: var(--ink-700); cursor: pointer;
 }
 .sf-cloud-in:hover { border-color: var(--brand-orange); color: var(--brand-orange); }
+.sf-cloud-err {
+  font-size: 11px; color: var(--danger);
+  background: #FCE4E1; border: 1px solid #F2B8B2;
+  padding: 6px 8px; border-radius: 6px; line-height: 1.4;
+}
+html[data-theme="dark"] .sf-cloud-err { background: #3a1f1d; border-color: #6b3530; color: #F2B8B2; }
 
 /* Sidebar drag-reorder visuals */
 .nav-grip {
@@ -251,8 +340,9 @@ input, select { font-family: inherit; }
   transition: background .15s;
 }
 .nav-item:hover { background: rgba(0,0,0,0.04); }
-.nav-item.active { background: var(--ink-900); color: #fff; }
-.nav-item.active .nav-icon { color: var(--brand-orange); }
+.nav-item.active { background: var(--brand-orange); color: #fff; }
+.nav-item.active .nav-icon { color: #fff; }
+.nav-item.active .nav-badge { background: rgba(255,255,255,.22); color: #fff; }
 .nav-icon { width: 18px; display: inline-flex; align-items: center; justify-content: center; }
 .nav-badge { margin-inline-start: auto; font-size: 11px; background: rgba(0,0,0,0.08); border-radius: 10px; padding: 1px 7px; font-variant-numeric: tabular-nums; }
 .nav-item.active .nav-badge { background: rgba(255,255,255,0.18); color: #fff; }
@@ -1817,7 +1907,9 @@ html .prod-load-dots .ld.hot { background: var(--danger); }
 
 /* ── Floating Undo button (Ctrl+Z) ── */
 .undo-fab {
-  position: fixed; bottom: 22px; inset-inline-start: 22px; z-index: 9500;
+  /* Bottom-end side → in RTL this is the LEFT edge of the screen, away from the right-side sidebar
+     so it never covers the settings panel. */
+  position: fixed; bottom: 22px; inset-inline-end: 22px; z-index: 9500;
   display: inline-flex; align-items: center; gap: 8px;
   padding: 10px 16px;
   background: var(--ink-900); color: #fff;

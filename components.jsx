@@ -247,14 +247,10 @@ function Sidebar({ view, setView, selectedProducer, producers, setProducers, tea
 // Collapsible settings panel pinned to the bottom of the sidebar.
 function SidebarSettings({ theme, setTheme, fbStatus, fbUser, fbSignIn, fbSignOut }) {
   const [open, setOpen] = React.useState(false);
-
-  const setDataAttr = (key, value, storageKey) => {
-    document.documentElement.dataset[key] = value;
-    try { localStorage.setItem(storageKey, value); } catch {}
-  };
+  const [signInErr, setSignInErr] = React.useState(null);
 
   const [density, setDensity] = React.useState(() => {
-    try { return localStorage.getItem('pref-density') || document.documentElement.dataset.density || 'regular'; }
+    try { return localStorage.getItem('pref-density') || 'regular'; }
     catch { return 'regular'; }
   });
   const [fireIcons, setFireIcons] = React.useState(() => {
@@ -267,7 +263,10 @@ function SidebarSettings({ theme, setTheme, fbStatus, fbUser, fbSignIn, fbSignOu
   });
 
   // Apply on mount + whenever any of these settings change.
-  React.useEffect(() => { setDataAttr('density', density, 'pref-density'); }, [density]);
+  React.useEffect(() => {
+    document.documentElement.dataset.density = density;
+    try { localStorage.setItem('pref-density', density); } catch {}
+  }, [density]);
   React.useEffect(() => {
     document.documentElement.dataset.fire = fireIcons ? '1' : '0';
     try { localStorage.setItem('pref-fire', fireIcons ? '1' : '0'); } catch {}
@@ -276,6 +275,27 @@ function SidebarSettings({ theme, setTheme, fbStatus, fbUser, fbSignIn, fbSignOu
     document.documentElement.dataset.capbars = capBars ? '1' : '0';
     try { localStorage.setItem('pref-capbars', capBars ? '1' : '0'); } catch {}
   }, [capBars]);
+
+  const handleSignIn = async () => {
+    setSignInErr(null);
+    try {
+      const result = fbSignIn && fbSignIn();
+      if (result && typeof result.then === 'function') await result;
+    } catch (e) {
+      const code = e && e.code;
+      if (code === 'auth/operation-not-allowed') {
+        setSignInErr('Google sign-in לא הופעל ב-Firebase. לך ל-Authentication → Sign-in method → Google → Enable.');
+      } else if (code === 'auth/unauthorized-domain') {
+        setSignInErr('הדומיין הזה לא ברשימה המורשת ב-Firebase Authentication → Settings → Authorized domains.');
+      } else if (code === 'auth/popup-blocked') {
+        setSignInErr('הדפדפן חסם את חלון ההתחברות. אפשר חלונות קופצים לאתר ונסה שוב.');
+      } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        // user cancelled — ignore
+      } else {
+        setSignInErr((e && e.message) ? e.message : 'שגיאה לא ידועה');
+      }
+    }
+  };
 
   return (
     <div className={'sidebar-foot ' + (open ? 'is-open' : '')}>
@@ -305,9 +325,12 @@ function SidebarSettings({ theme, setTheme, fbStatus, fbUser, fbSignIn, fbSignOu
                   <button className="sf-cloud-out" onClick={fbSignOut}>נתק</button>
                 </div>
               ) : (
-                <button className="sf-cloud-in" onClick={fbSignIn}>
-                  <span style={{fontSize:13}}>🔐</span> התחבר עם Google
-                </button>
+                <>
+                  <button className="sf-cloud-in" onClick={handleSignIn}>
+                    <span style={{fontSize:13}}>🔐</span> התחבר עם Google
+                  </button>
+                  {signInErr && <div className="sf-cloud-err">{signInErr}</div>}
+                </>
               )
             )}
           </div>
@@ -335,16 +358,6 @@ function SidebarSettings({ theme, setTheme, fbStatus, fbUser, fbSignIn, fbSignOu
             <span>פסי קיבולת על מפיקים</span>
             <input type="checkbox" checked={capBars} onChange={e => setCapBars(e.target.checked)}/>
           </label>
-          <button className="sf-reset" onClick={() => {
-            if (!confirm('לאפס את הנתונים השמורים? כל הסידור והעריכות יימחקו.')) return;
-            try {
-              ['producers','projects-v2','assignments-v1','teams','board-order','view','producerId',
-               'pref-density','pref-fire','pref-capbars','theme','producers-restore-vAK-v1',
-               'import-mapping-v1','statusOverrides'
-              ].forEach(k => localStorage.removeItem(k));
-            } catch {}
-            location.reload();
-          }}>איפוס נתונים מלא</button>
         </div>
       )}
     </div>
