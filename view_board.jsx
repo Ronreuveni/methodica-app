@@ -809,7 +809,6 @@ function ComboInput({ defaultValue, options, onCommit, onCancel, className }) {
       <input ref={inputRef} autoFocus className={className} value={val}
         autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
         onFocus={e => e.target.select()}
-        onBlur={() => commit(val)}
         onCompositionEnd={e => setVal(e.target.value)}
         onChange={e => { setVal(e.target.value); setHasTyped(true); }}
         onKeyDown={e => {
