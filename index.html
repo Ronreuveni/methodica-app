@@ -194,11 +194,23 @@ function App() {
         const data = snap.data() || {};
         isApplyingSnapshot.current = true;
         if (Array.isArray(data.producers))   setProducersRaw(data.producers);
-        if (Array.isArray(data.projects))    setProjectsRaw(data.projects);
+        if (Array.isArray(data.projects)) {
+          // PRESERVE local-only drafts (empty-name projects the user is currently
+          // typing into) — otherwise the cloud snapshot (which we filter to drop
+          // them) would wipe them out mid-edit.
+          setProjectsRaw(prev => {
+            const cloudIds = new Set(data.projects.map(p => p.id));
+            const localDrafts = prev.filter(p =>
+              !cloudIds.has(p.id) && !((p.name || '').trim())
+            );
+            const next = [...localDrafts, ...data.projects];
+            window.PROJECTS = next;
+            return next;
+          });
+        }
         if (Array.isArray(data.assignments)) setAssignmentsRaw(data.assignments);
         if (Array.isArray(data.teams))       setTeamsRaw(data.teams);
         if (Array.isArray(data.producers))   window.PRODUCERS = data.producers;
-        if (Array.isArray(data.projects))    window.PROJECTS  = data.projects;
         // Clear the flag after React commits the state updates.
         Promise.resolve().then(() => { isApplyingSnapshot.current = false; });
         hasSeenSnapshot.current = true;
