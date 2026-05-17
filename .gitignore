@@ -2,3 +2,10 @@ screenshots/
 template_media/
 uploads/
 /src/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
